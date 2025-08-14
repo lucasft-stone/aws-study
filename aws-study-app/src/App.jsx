@@ -167,7 +167,7 @@ export default function App() {
     
     const handleGenerateFromTopic = (topic) => {
         setQuizTopic(topic);
-        const prompt = `Gere um quiz com 5 perguntas de múltipla escolha sobre o tópico "${topic}". As perguntas devem ser adequadas para um profissional de TI estudando para uma certificação. Para cada pergunta, forneça 4 opções, indique a resposta correta e uma breve explicação do porquê.`;
+        const prompt = `Gere um quiz com 5 perguntas de múltipla escolha sobre o tópico "${topic}". As perguntas devem ser adequadas para um profissional de TI estudando para uma certificação. Para cada pergunta, forneça 4 opções, indique a resposta correta e uma breve explicação do porquê. Gere tudo sempre em português do brasil.`;
         generateQuiz(prompt);
     };
 
