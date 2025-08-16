@@ -5,13 +5,14 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signO
 import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, updateDoc } from 'firebase/firestore';
 
 // --- FLAG PARA TESTE ---
+// Mude para 'true' para ativar o login real com Google e salvar no banco de dados.
+// Mude para 'false' para pular o login e testar o app com dados locais.
 const ENABLE_FIREBASE_AUTH = import.meta.env.VITE_ENABLE_FIREBASE_AUTH;
 
 // --- CONFIGURAÇÕES DE ADMIN E LIMITES ---
 const ROOT_USER_UID = import.meta.env.VITE_ROOT_USER_UID;
 const MAX_DAILY_REFRESHES = 10;
 const MAX_DAILY_TRAIL_CREATIONS = 1;
-
 
 // --- Configuração do Firebase ---
 const firebaseConfig = {
@@ -24,7 +25,7 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Inicializa o Firebase e os serviços
+// Inicializa o Firebase e os serviços APENAS se a flag estiver ativa
 let app, auth, db;
 if (ENABLE_FIREBASE_AUTH) {
     app = initializeApp(firebaseConfig);
@@ -70,7 +71,7 @@ const studyLevels = [
 export default function App() {
     const [appState, setAppState] = useState('loading');
     const [user, setUser] = useState(null);
-    const [userData, setUserData] = useState({ xp: 0, hearts: MAX_HEARTS, dailyRefreshes: 0, dailyTrailCreations: 0 });
+    const [userData, setUserData] = useState(null);
     const [customTrails, setCustomTrails] = useState([]);
     const [currentTrail, setCurrentTrail] = useState(null);
     const [studyContent, setStudyContent] = useState('');
@@ -88,62 +89,82 @@ export default function App() {
     
     // --- Gerenciamento de Autenticação e Dados ---
     useEffect(() => {
-        const today = new Date().toISOString().split('T')[0];
-        const mockUserData = {
-            xp: 150, hearts: MAX_HEARTS,
-            lastRefreshDate: today, dailyRefreshes: 0,
-            lastTrailCreationDate: today, dailyTrailCreations: 0
-        };
-
         if (ENABLE_FIREBASE_AUTH) {
             const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-                if (currentUser) {
-                    setUser(currentUser);
-                    const userRef = doc(db, 'users', currentUser.uid);
-                    let docSnap = await getDoc(userRef);
-                    if (!docSnap.exists()) {
-                        await setDoc(userRef, { xp: 0, hearts: MAX_HEARTS, createdAt: new Date() });
-                        docSnap = await getDoc(userRef);
+                try {
+                    if (currentUser) {
+                        setUser(currentUser);
+                        const userRef = doc(db, 'users', currentUser.uid);
+                        let docSnap = await getDoc(userRef);
+                        
+                        let currentData;
+                        if (docSnap.exists()) {
+                            currentData = docSnap.data();
+                        } else {
+                            currentData = { xp: 0, hearts: MAX_HEARTS, createdAt: new Date() };
+                            await setDoc(userRef, currentData);
+                        }
+                        
+                        const updatedData = await checkAndResetDailyLimits(currentData, currentUser.uid);
+                        setUserData(updatedData);
+                        await fetchCustomTrails(currentUser.uid);
+                        setAppState('home');
+                    } else {
+                        setUser(null);
+                        setUserData(null);
+                        setAppState('login');
                     }
-                    let currentData = docSnap.data();
-                    currentData = checkAndResetDailyLimits(currentData);
-                    setUserData(currentData);
-                    await fetchCustomTrails(currentUser.uid);
-                    setAppState('home');
-                } else {
-                    setUser(null); setAppState('login');
+                } catch (error) {
+                    console.error("Erro ao carregar dados do usuário:", error);
+                    setApiError("Não foi possível carregar seus dados. Tente recarregar a página.");
+                    setAppState('login');
                 }
             });
             return () => unsubscribe();
         } else {
+            // Modo de teste sem login: ignora Firebase e usa dados mockados.
+            const today = new Date().toISOString().split('T')[0];
             setUser({ displayName: "Usuário Teste", photoURL: "https://placehold.co/40x40/6366f1/FFFFFF?text=T", uid: "test-user-123" });
-            setUserData(mockUserData);
+            setUserData({
+                xp: 150, hearts: MAX_HEARTS,
+                lastRefreshDate: today, dailyRefreshes: 0,
+                lastTrailCreationDate: today, dailyTrailCreations: 0
+            });
             setCustomTrails([{id: '1', title: 'Minha Primeira Trilha', content: 'Este é um teste.'}]);
             setAppState('home');
         }
     }, []);
 
-    const checkAndResetDailyLimits = (data) => {
+    const checkAndResetDailyLimits = async (data, uid) => {
         const today = new Date().toISOString().split('T')[0];
         let needsUpdate = false;
-        if (data.lastRefreshDate !== today) {
-            data.dailyRefreshes = 0;
-            data.lastRefreshDate = today;
+        const updatedData = { ...data };
+
+        if (updatedData.lastRefreshDate !== today) {
+            updatedData.dailyRefreshes = 0;
+            updatedData.lastRefreshDate = today;
             needsUpdate = true;
         }
-        if (data.lastTrailCreationDate !== today) {
-            data.dailyTrailCreations = 0;
-            data.lastTrailCreationDate = today;
+        if (updatedData.lastTrailCreationDate !== today) {
+            updatedData.dailyTrailCreations = 0;
+            updatedData.lastTrailCreationDate = today;
             needsUpdate = true;
         }
-        if (needsUpdate && user && ENABLE_FIREBASE_AUTH) {
-            updateUserData(data);
+        
+        if (needsUpdate && ENABLE_FIREBASE_AUTH) {
+            const userRef = doc(db, 'users', uid);
+            await updateDoc(userRef, {
+                dailyRefreshes: updatedData.dailyRefreshes,
+                lastRefreshDate: updatedData.lastRefreshDate,
+                dailyTrailCreations: updatedData.dailyTrailCreations,
+                lastTrailCreationDate: updatedData.lastTrailCreationDate
+            });
         }
-        return data;
+        return updatedData;
     };
 
     const fetchCustomTrails = async (uid) => {
-        if (!ENABLE_FIREBASE_AUTH || !db) return;
+        if (!ENABLE_FIREBASE_AUTH || !db) return; // Ignora se o Firebase estiver desativado
         const trailsQuery = query(collection(db, 'users', uid, 'customTrails'));
         const querySnapshot = await getDocs(trailsQuery);
         const trails = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -154,11 +175,13 @@ export default function App() {
         if (!ENABLE_FIREBASE_AUTH) return;
         const provider = new GoogleAuthProvider();
         try {
+            setAppState('loading');
             await signInWithPopup(auth, provider);
             setApiError('');
         } catch (error) {
             console.error("Erro no login com Google:", error);
             setApiError("Ocorreu um erro durante o login.");
+            setAppState('login');
         }
     };
 
@@ -168,7 +191,7 @@ export default function App() {
     };
 
     const updateUserData = async (newData) => {
-        if (!ENABLE_FIREBASE_AUTH || !user) return;
+        if (!ENABLE_FIREBASE_AUTH || !user) return; // Ignora se o Firebase estiver desativado
         const userRef = doc(db, 'users', user.uid);
         const updatedData = { ...userData, ...newData };
         await setDoc(userRef, updatedData, { merge: true });
@@ -194,10 +217,11 @@ export default function App() {
         }
         setNewTrailTitle('');
         setNewTrailContent('');
+        const updatedLimits = { dailyTrailCreations: userData.dailyTrailCreations + 1 };
         if (ENABLE_FIREBASE_AUTH) {
-            updateUserData({ dailyTrailCreations: userData.dailyTrailCreations + 1 });
+            updateUserData(updatedLimits);
         } else {
-            setUserData(prev => ({...prev, dailyTrailCreations: prev.dailyTrailCreations + 1}));
+            setUserData(prev => ({...prev, ...updatedLimits}));
         }
         setAppState('home');
     };
@@ -222,16 +246,12 @@ export default function App() {
 
     const updateTrailCache = async (trailId, cacheKey, content) => {
         if (ENABLE_FIREBASE_AUTH && user) {
-            // Atualiza o cache no Firestore para trilhas customizadas
             if (!trailId.startsWith('level-')) {
                 const trailRef = doc(db, 'users', user.uid, 'customTrails', trailId);
                 await updateDoc(trailRef, { [cacheKey]: content });
             }
         }
-        // Atualiza o cache no estado local para ambos os modos
-        const trailsSource = trailId.startsWith('level-') ? studyLevels : customTrails;
         const setTrailsSource = trailId.startsWith('level-') ? () => {} : setCustomTrails;
-
         setTrailsSource(prevTrails => prevTrails.map(t => 
             t.id === trailId ? { ...t, [cacheKey]: content } : t
         ));
@@ -245,10 +265,11 @@ export default function App() {
                 setApiError(`Você atingiu o limite de ${MAX_DAILY_REFRESHES} atualizações por dia.`);
                 return;
             }
+            const updatedLimits = { dailyRefreshes: userData.dailyRefreshes + 1 };
              if (ENABLE_FIREBASE_AUTH) {
-                updateUserData({ dailyRefreshes: userData.dailyRefreshes + 1 });
+                updateUserData(updatedLimits);
             } else {
-                setUserData(prev => ({...prev, dailyRefreshes: prev.dailyRefreshes + 1}));
+                setUserData(prev => ({...prev, ...updatedLimits}));
             }
         }
         
@@ -360,6 +381,10 @@ export default function App() {
 
     // --- Renderização ---
     const renderContent = () => {
+        if (!userData && ENABLE_FIREBASE_AUTH) {
+             return <LoadingScreen text="Carregando dados do usuário..." />;
+        }
+
         switch (appState) {
             case 'loading': return <LoadingScreen text="Gerando conteúdo..." />;
             case 'login':
@@ -511,7 +536,7 @@ export default function App() {
                         <button onClick={handleReturnHome} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-2xl shadow-lg transition-transform hover:scale-105">Voltar ao Início</button>
                     </div>
                 );
-            default: return <div>Carregando...</div>;
+            default: return <LoadingScreen text="Carregando..." />;
         }
     };
 
