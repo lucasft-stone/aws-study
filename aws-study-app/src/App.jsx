@@ -2,7 +2,16 @@ import React, { useState, useEffect } from 'react';
 // Importações do Firebase
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, updateDoc } from 'firebase/firestore';
+
+// --- FLAG PARA TESTE ---
+const ENABLE_FIREBASE_AUTH = import.meta.env.VITE_ENABLE_FIREBASE_AUTH;
+
+// --- CONFIGURAÇÕES DE ADMIN E LIMITES ---
+const ROOT_USER_UID = import.meta.env.VITE_ROOT_USER_UID;
+const MAX_DAILY_REFRESHES = 10;
+const MAX_DAILY_TRAIL_CREATIONS = 1;
+
 
 // --- Configuração do Firebase ---
 const firebaseConfig = {
@@ -16,9 +25,12 @@ const firebaseConfig = {
 };
 
 // Inicializa o Firebase e os serviços
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+let app, auth, db;
+if (ENABLE_FIREBASE_AUTH) {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+}
 
 // --- Componentes de UI e Mascote ---
 const StudyBot = ({ status = 'idle', className = '' }) => {
@@ -41,107 +53,156 @@ const StudyBot = ({ status = 'idle', className = '' }) => {
         </div>
     );
 };
-const LoadingScreen = () => ( <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-gray-900 p-4 text-center"><StudyBot status="loading" /><h2 className="text-2xl font-bold text-slate-700 dark:text-slate-200 mt-4">Analisando...</h2><p className="text-slate-500 dark:text-slate-400">A IA está preparando seu desafio!</p></div>);
+const LoadingScreen = ({text}) => ( <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-gray-900 p-4 text-center"><StudyBot status="loading" /><h2 className="text-2xl font-bold text-slate-700 dark:text-slate-200 mt-4">{text || "Carregando..."}</h2></div>);
 const CardButton = ({ title, description, onClick, disabled = false, icon }) => ( <button onClick={onClick} disabled={disabled} className={`relative w-full p-6 text-left bg-white dark:bg-gray-800 rounded-2xl shadow-lg transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-xl hover:-translate-y-1'}`}><div className="flex items-center gap-5"><div>{icon}</div><div><h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{title}</h2><p className="text-slate-500 dark:text-slate-400">{description}</p></div></div>{!disabled && <div className="absolute top-4 right-4 text-slate-400">→</div>}</button>);
 
-// --- Constantes e Trilha de Módulos Expandida ---
+// --- Constantes e Trilha de Módulos ---
 const XP_PER_CORRECT_ANSWER = 25;
 const MAX_HEARTS = 5;
 const studyLevels = [
-    { id: 1, title: 'Fundamentos de IAM', topic: 'AWS IAM: Users, Groups, Roles, and Policies', xpRequired: 0, icon: '👤' },
-    { id: 2, title: 'Armazenamento com S3', topic: 'AWS S3: Buckets, Storage Classes, and Lifecycle Policies', xpRequired: 100, icon: '🗃️' },
-    { id: 3, title: 'Computação com EC2', topic: 'AWS EC2: Instances, AMIs, and Security Groups', xpRequired: 250, icon: '💻' },
-    { id: 4, title: 'Redes com VPC', topic: 'AWS VPC: Subnets, Route Tables, and NAT Gateways', xpRequired: 500, icon: '🌐' },
-    { id: 5, title: 'Bancos de Dados com RDS', topic: 'AWS RDS: Relational Databases, Read Replicas, and Multi-AZ', xpRequired: 800, icon: '💾' },
-    { id: 6, title: 'Serverless com Lambda', topic: 'AWS Lambda: Functions, Triggers, and Execution Roles', xpRequired: 1200, icon: '⚡' },
-    { id: 7, title: 'Segurança e Conformidade', topic: 'AWS Security: KMS, WAF, and GuardDuty', xpRequired: 1700, icon: '🛡️' },
-    { id: 8, title: 'Monitoramento e Logs', topic: 'AWS Monitoring: CloudWatch Alarms, Metrics, and Logs', xpRequired: 2300, icon: '📊' },
+    { id: 'level-1', title: 'Fundamentos de IAM', content: 'Estudo sobre AWS IAM: Usuários, Grupos, Roles e Políticas de permissão.', xpRequired: 0, icon: '👤' },
+    { id: 'level-2', title: 'Armazenamento com S3', content: 'Estudo sobre AWS S3: Buckets, Classes de Armazenamento e Políticas de Ciclo de Vida.', xpRequired: 100, icon: '🗃️' },
+    { id: 'level-3', title: 'Computação com EC2', content: 'Estudo sobre AWS EC2: Instâncias, AMIs e Grupos de Segurança.', xpRequired: 250, icon: '💻' },
+    { id: 'level-4', title: 'Redes com VPC', content: 'Estudo sobre AWS VPC: Subnets, Tabelas de Rota e Gateways NAT.', xpRequired: 500, icon: '🌐' },
 ];
 
 // --- Componente Principal ---
 export default function App() {
-    const [appState, setAppState] = useState('loading'); // loading, login, home, level_selection, material_input, quiz, completed
+    const [appState, setAppState] = useState('loading');
     const [user, setUser] = useState(null);
-    const [userData, setUserData] = useState({ xp: 0, hearts: MAX_HEARTS });
-    
-    const [studyMaterial, setStudyMaterial] = useState('');
+    const [userData, setUserData] = useState({ xp: 0, hearts: MAX_HEARTS, dailyRefreshes: 0, dailyTrailCreations: 0 });
+    const [customTrails, setCustomTrails] = useState([]);
+    const [currentTrail, setCurrentTrail] = useState(null);
+    const [studyContent, setStudyContent] = useState('');
+    const [newTrailTitle, setNewTrailTitle] = useState('');
+    const [newTrailContent, setNewTrailContent] = useState('');
     const [quizQuestions, setQuizQuestions] = useState([]);
     const [apiError, setApiError] = useState('');
-    
     const [lastQuizXp, setLastQuizXp] = useState(0);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState(null);
     const [isAnswered, setIsAnswered] = useState(false);
     const [isCorrect, setIsCorrect] = useState(null);
-    const [score, setScore] = useState(0);
     const [botStatus, setBotStatus] = useState('idle');
-    const [quizTopic, setQuizTopic] = useState('');
     const [quizFailed, setQuizFailed] = useState(false);
-
-    // --- Gerenciamento de Autenticação e Dados do Usuário ---
+    
+    // --- Gerenciamento de Autenticação e Dados ---
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            if (currentUser) {
-                setUser(currentUser);
-                const userRef = doc(db, 'users', currentUser.uid);
-                const docSnap = await getDoc(userRef);
-                if (docSnap.exists()) {
-                    setUserData(docSnap.data());
+        const today = new Date().toISOString().split('T')[0];
+        const mockUserData = {
+            xp: 150, hearts: MAX_HEARTS,
+            lastRefreshDate: today, dailyRefreshes: 0,
+            lastTrailCreationDate: today, dailyTrailCreations: 0
+        };
+
+        if (ENABLE_FIREBASE_AUTH) {
+            const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+                if (currentUser) {
+                    setUser(currentUser);
+                    const userRef = doc(db, 'users', currentUser.uid);
+                    let docSnap = await getDoc(userRef);
+                    if (!docSnap.exists()) {
+                        await setDoc(userRef, { xp: 0, hearts: MAX_HEARTS, createdAt: new Date() });
+                        docSnap = await getDoc(userRef);
+                    }
+                    let currentData = docSnap.data();
+                    currentData = checkAndResetDailyLimits(currentData);
+                    setUserData(currentData);
+                    await fetchCustomTrails(currentUser.uid);
+                    setAppState('home');
                 } else {
-                    const newUserData = { xp: 0, hearts: MAX_HEARTS, createdAt: new Date() };
-                    await setDoc(userRef, newUserData);
-                    setUserData(newUserData);
+                    setUser(null); setAppState('login');
                 }
-                setAppState('home');
-            } else {
-                setUser(null);
-                setAppState('login');
-            }
-        });
-        return () => unsubscribe();
+            });
+            return () => unsubscribe();
+        } else {
+            setUser({ displayName: "Usuário Teste", photoURL: "https://placehold.co/40x40/6366f1/FFFFFF?text=T", uid: "test-user-123" });
+            setUserData(mockUserData);
+            setCustomTrails([{id: '1', title: 'Minha Primeira Trilha', content: 'Este é um teste.'}]);
+            setAppState('home');
+        }
     }, []);
 
+    const checkAndResetDailyLimits = (data) => {
+        const today = new Date().toISOString().split('T')[0];
+        let needsUpdate = false;
+        if (data.lastRefreshDate !== today) {
+            data.dailyRefreshes = 0;
+            data.lastRefreshDate = today;
+            needsUpdate = true;
+        }
+        if (data.lastTrailCreationDate !== today) {
+            data.dailyTrailCreations = 0;
+            data.lastTrailCreationDate = today;
+            needsUpdate = true;
+        }
+        if (needsUpdate && user && ENABLE_FIREBASE_AUTH) {
+            updateUserData(data);
+        }
+        return data;
+    };
+
+    const fetchCustomTrails = async (uid) => {
+        if (!ENABLE_FIREBASE_AUTH || !db) return;
+        const trailsQuery = query(collection(db, 'users', uid, 'customTrails'));
+        const querySnapshot = await getDocs(trailsQuery);
+        const trails = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setCustomTrails(trails);
+    };
+    
     const signInWithGoogle = async () => {
+        if (!ENABLE_FIREBASE_AUTH) return;
         const provider = new GoogleAuthProvider();
         try {
             await signInWithPopup(auth, provider);
-            setApiError(''); // Limpa o erro em caso de sucesso
+            setApiError('');
         } catch (error) {
             console.error("Erro no login com Google:", error);
-            if (error.code === 'auth/configuration-not-found' || error.code === 'auth/unauthorized-domain') {
-                setApiError("Erro de configuração. Verifique se o domínio deste aplicativo está na lista de 'Domínios autorizados' nas configurações de Autenticação do seu projeto Firebase.");
-            } else {
-                setApiError("Ocorreu um erro durante o login. Tente novamente.");
-            }
+            setApiError("Ocorreu um erro durante o login.");
         }
     };
 
     const signOutUser = async () => {
+        if (!ENABLE_FIREBASE_AUTH) return;
         await signOut(auth);
     };
 
     const updateUserData = async (newData) => {
-        if (!user) return;
+        if (!ENABLE_FIREBASE_AUTH || !user) return;
         const userRef = doc(db, 'users', user.uid);
         const updatedData = { ...userData, ...newData };
         await setDoc(userRef, updatedData, { merge: true });
         setUserData(updatedData);
     };
 
-    // --- Lógica de Geração de Quiz ---
-    const generateQuiz = async (promptText) => {
+    // --- Lógica de Geração de Conteúdo com Cache e Limites ---
+    const handleCreateTrail = async () => {
+        const isRoot = user?.uid === ROOT_USER_UID;
+        const limitReached = userData.dailyTrailCreations >= MAX_DAILY_TRAIL_CREATIONS;
+        if (limitReached && !isRoot) {
+            setApiError(`Você atingiu o limite de ${MAX_DAILY_TRAIL_CREATIONS} nova trilha por dia.`);
+            return;
+        }
         setAppState('loading');
-        setApiError('');
-        const payload = {
-            contents: [{ role: "user", parts: [{ text: promptText }] }],
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: "OBJECT", properties: { questions: { type: "ARRAY", items: { type: "OBJECT", properties: { question: { type: "STRING" }, options: { type: "ARRAY", items: { type: "STRING" } }, correctAnswer: { type: "STRING" }, explanation: { type: "STRING" } }, required: ["question", "options", "correctAnswer", "explanation"] } } }, required: ["questions"]
-                }
-            }
-        };
+        const newTrail = { title: newTrailTitle, content: newTrailContent, createdAt: new Date() };
+        if (ENABLE_FIREBASE_AUTH && user) {
+            const userTrailsRef = collection(db, 'users', user.uid, 'customTrails');
+            const docRef = await addDoc(userTrailsRef, newTrail);
+            setCustomTrails(prev => [...prev, { ...newTrail, id: docRef.id }]);
+        } else {
+            setCustomTrails(prev => [...prev, {...newTrail, id: Date.now().toString()}]);
+        }
+        setNewTrailTitle('');
+        setNewTrailContent('');
+        if (ENABLE_FIREBASE_AUTH) {
+            updateUserData({ dailyTrailCreations: userData.dailyTrailCreations + 1 });
+        } else {
+            setUserData(prev => ({...prev, dailyTrailCreations: prev.dailyTrailCreations + 1}));
+        }
+        setAppState('home');
+    };
 
+    const callGeminiAPI = async (payload) => {
         try {
             const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
@@ -150,49 +211,113 @@ export default function App() {
             const result = await response.json();
             const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!jsonText) throw new Error("A resposta da IA está vazia ou em formato inválido.");
-            const parsedData = JSON.parse(jsonText);
-            if (parsedData.questions && parsedData.questions.length > 0) {
-                setQuizQuestions(parsedData.questions);
-                resetQuizState();
-                setAppState('quiz');
-            } else {
-                throw new Error("Nenhuma pergunta foi gerada. O material pode ser muito curto.");
-            }
+            return JSON.parse(jsonText);
         } catch (error) {
-            console.error("Falha ao gerar quiz:", error);
-            setApiError(`Não foi possível gerar o quiz. Detalhe: ${error.message}`);
+            console.error("Falha na chamada da API Gemini:", error);
+            setApiError(`Não foi possível gerar o conteúdo. Detalhe: ${error.message}`);
             setAppState('home');
+            return null;
         }
     };
-    
-    const handleGenerateFromTopic = (topic) => {
-        setQuizTopic(topic);
-        const prompt = `Gere um quiz com 5 perguntas de múltipla escolha sobre o tópico "${topic}". As perguntas devem ser adequadas para um profissional de TI estudando para uma certificação. Para cada pergunta, forneça 4 opções, indique a resposta correta e uma breve explicação do porquê. Gere tudo sempre em português do brasil.`;
-        generateQuiz(prompt);
+
+    const updateTrailCache = async (trailId, cacheKey, content) => {
+        if (ENABLE_FIREBASE_AUTH && user) {
+            // Atualiza o cache no Firestore para trilhas customizadas
+            if (!trailId.startsWith('level-')) {
+                const trailRef = doc(db, 'users', user.uid, 'customTrails', trailId);
+                await updateDoc(trailRef, { [cacheKey]: content });
+            }
+        }
+        // Atualiza o cache no estado local para ambos os modos
+        const trailsSource = trailId.startsWith('level-') ? studyLevels : customTrails;
+        const setTrailsSource = trailId.startsWith('level-') ? () => {} : setCustomTrails;
+
+        setTrailsSource(prevTrails => prevTrails.map(t => 
+            t.id === trailId ? { ...t, [cacheKey]: content } : t
+        ));
     };
 
-    const handleGenerateFromMaterial = () => {
-        if (!studyMaterial.trim()) {
-            setApiError("Por favor, insira o material de estudo.");
+    const generateContent = async (trail, type, forceRefresh = false) => {
+        const isRoot = user?.uid === ROOT_USER_UID;
+        if (forceRefresh) {
+            const limitReached = userData.dailyRefreshes >= MAX_DAILY_REFRESHES;
+            if (limitReached && !isRoot) {
+                setApiError(`Você atingiu o limite de ${MAX_DAILY_REFRESHES} atualizações por dia.`);
+                return;
+            }
+             if (ENABLE_FIREBASE_AUTH) {
+                updateUserData({ dailyRefreshes: userData.dailyRefreshes + 1 });
+            } else {
+                setUserData(prev => ({...prev, dailyRefreshes: prev.dailyRefreshes + 1}));
+            }
+        }
+        
+        setAppState('loading');
+        
+        const cacheKey = type === 'study' ? 'cachedStudy' : 'cachedQuiz';
+        if (trail[cacheKey] && !forceRefresh) {
+            if (type === 'study') setStudyContent(trail[cacheKey]);
+            else setQuizQuestions(trail[cacheKey]);
+            setAppState(type === 'study' ? 'studying_material' : 'quiz');
             return;
         }
-        setQuizTopic("Seu Material de Estudo");
-        const prompt = `Com base no seguinte material de estudo, gere um quiz com 5 perguntas de múltipla escolha. As perguntas devem testar os conceitos chave apresentados no texto. Para cada pergunta, forneça 4 opções, indique a resposta correta e uma breve explicação do porquê, baseando-se estritamente no conteúdo fornecido. Material: """${studyMaterial}"""`;
-        generateQuiz(prompt);
+        
+        const prompt = type === 'study'
+            ? `Crie um material de estudo didático e engajador sobre o seguinte conteúdo, como se fosse para uma aula. Use analogias e exemplos práticos. Retorne o conteúdo em formato JSON com uma única chave "studyMaterial" contendo o texto em markdown. Conteúdo: """${trail.content}"""`
+            : `Com base no seguinte material, gere um quiz com 5 perguntas de múltipla escolha. Material: """${trail.content}"""`;
+        
+        const payload = {
+             contents: [{ role: "user", parts: [{ text: prompt }] }],
+             generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: type === 'study' 
+                    ? { type: "OBJECT", properties: { studyMaterial: { type: "STRING" } }, required: ["studyMaterial"] }
+                    : { type: "OBJECT", properties: { questions: { type: "ARRAY", items: { type: "OBJECT", properties: { question: { type: "STRING" }, options: { type: "ARRAY", items: { type: "STRING" } }, correctAnswer: { type: "STRING" }, explanation: { type: "STRING" } }, required: ["question", "options", "correctAnswer", "explanation"] } } }, required: ["questions"] }
+             }
+        };
+        
+        const parsedData = await callGeminiAPI(payload);
+
+        if (parsedData) {
+            if (type === 'study' && parsedData.studyMaterial) {
+                setStudyContent(parsedData.studyMaterial);
+                await updateTrailCache(trail.id, cacheKey, parsedData.studyMaterial);
+                setAppState('studying_material');
+            } else if (type === 'quiz' && parsedData.questions) {
+                setQuizQuestions(parsedData.questions);
+                await updateTrailCache(trail.id, cacheKey, parsedData.questions);
+                resetQuizState();
+                setAppState('quiz');
+            }
+        }
     };
 
+    const handleFinishStudyAndStartQuiz = () => {
+        if (userData.hearts <= 0) {
+            const updatedData = { hearts: MAX_HEARTS };
+            if (ENABLE_FIREBASE_AUTH) updateUserData(updatedData);
+            else setUserData(prev => ({...prev, ...updatedData}));
+        }
+        generateContent(currentTrail, 'quiz');
+    };
+
+    const handleSelectTrail = (trail) => {
+        setCurrentTrail(trail);
+        setAppState('trail_options');
+    };
+
+    const handleReturnHome = () => { setAppState('home'); setQuizFailed(false); };
+    
     const resetQuizState = () => {
         setCurrentQuestionIndex(0);
         setSelectedAnswer(null);
         setIsAnswered(false);
         setIsCorrect(null);
-        setScore(0);
         setBotStatus('idle');
         setLastQuizXp(0);
         setQuizFailed(false);
     };
 
-    // --- Lógica do Quiz com Corações ---
     const handleCheckAnswer = () => {
         if (!selectedAnswer) return;
         const correct = selectedAnswer === quizQuestions[currentQuestionIndex].correctAnswer;
@@ -203,10 +328,12 @@ export default function App() {
         if (correct) {
             const newXp = userData.xp + XP_PER_CORRECT_ANSWER;
             setLastQuizXp(prev => prev + XP_PER_CORRECT_ANSWER);
-            updateUserData({ xp: newXp });
+            if(ENABLE_FIREBASE_AUTH) updateUserData({ xp: newXp });
+            else setUserData(prev => ({...prev, xp: newXp}));
         } else {
             const newHearts = userData.hearts - 1;
-            updateUserData({ hearts: newHearts });
+            if(ENABLE_FIREBASE_AUTH) updateUserData({ hearts: newHearts });
+            else setUserData(prev => ({...prev, hearts: newHearts}));
             if (newHearts <= 0) {
                 setQuizFailed(true);
             }
@@ -229,21 +356,12 @@ export default function App() {
         }
     };
     
-    const handleReturnHome = () => {
-        setAppState('home');
-        setQuizFailed(false);
-    };
-
-    const handleSelectAnswer = (option) => {
-        if (!isAnswered) {
-            setSelectedAnswer(option);
-        }
-    };
+    const handleSelectAnswer = (option) => { if (!isAnswered) setSelectedAnswer(option); };
 
     // --- Renderização ---
     const renderContent = () => {
         switch (appState) {
-            case 'loading': return <div className="text-center"><StudyBot status="loading" /><p>Carregando...</p></div>;
+            case 'loading': return <LoadingScreen text="Gerando conteúdo..." />;
             case 'login':
                 return (
                     <div className="w-full max-w-sm text-center">
@@ -258,47 +376,79 @@ export default function App() {
                     </div>
                 );
             case 'home':
+                const creationLimitReached = userData.dailyTrailCreations >= MAX_DAILY_TRAIL_CREATIONS && user?.uid !== ROOT_USER_UID;
                 return (
-                    <div className="w-full max-w-lg text-center">
+                    <div className="w-full max-w-2xl text-center">
                         <div className="flex justify-between items-center mb-4">
-                            <div className="flex items-center gap-2">
-                                <img src={user.photoURL} alt={user.displayName} className="w-10 h-10 rounded-full" />
-                                <span className="font-bold">{user.displayName}</span>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <span className="text-xl font-bold text-red-500 flex items-center gap-1">❤️ {userData.hearts}</span>
-                                <button onClick={signOutUser} className="text-sm font-bold text-slate-500">Sair</button>
-                            </div>
+                            <div className="flex items-center gap-2"><img src={user?.photoURL} alt={user?.displayName} className="w-10 h-10 rounded-full" /><span className="font-bold">{user?.displayName}</span></div>
+                            <div className="flex items-center gap-4"><span className="text-xl font-bold text-red-500 flex items-center gap-1">❤️ {userData.hearts}</span>{ENABLE_FIREBASE_AUTH && <button onClick={signOutUser} className="text-sm font-bold text-slate-500">Sair</button>}</div>
                         </div>
                         <StudyBot status="idle" />
                         <h1 className="text-4xl font-extrabold text-slate-800 dark:text-white mb-2">StudyBot AWS</h1>
-                        <p className="text-slate-500 dark:text-slate-300 mb-4">Sua pontuação total: <span className="font-bold text-indigo-500">{userData.xp} XP</span></p>
-                        {apiError && <p className="text-red-500 text-sm mb-4">{apiError}</p>}
-                        <div className="space-y-4">
-                            <CardButton title="Trilha de Módulos" description="Siga um caminho de aprendizado e desbloqueie níveis." onClick={() => setAppState('level_selection')} icon={<span>📚</span>} />
-                            <CardButton title="Estudo com Meu Material" description="Cole seu texto e crie um quiz personalizado." onClick={() => setAppState('material_input')} icon={<span>✍️</span>} />
+                        <p className="text-slate-500 dark:text-slate-300 mb-6">Sua pontuação total: <span className="font-bold text-indigo-500">{userData.xp} XP</span></p>
+                        
+                        <div className="space-y-6">
+                            <div>
+                                <h2 className="text-2xl font-bold text-left mb-3">Trilhas Guiadas</h2>
+                                {studyLevels.map(level => (
+                                    <CardButton key={level.id} title={level.title} description={`${level.xpRequired} XP necessários`} disabled={userData.xp < level.xpRequired} onClick={() => handleSelectTrail(level)} icon={userData.xp < level.xpRequired ? '🔒' : '✅'} />
+                                ))}
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-left mb-3">Minhas Trilhas</h2>
+                                {customTrails.length > 0 ? customTrails.map(trail => (
+                                    <CardButton key={trail.id} title={trail.title} description="Sua trilha personalizada" onClick={() => handleSelectTrail(trail)} icon={'📌'} />
+                                )) : <p className="text-slate-500">Você ainda não criou nenhuma trilha.</p>}
+                                <button onClick={() => setAppState('create_trail')} disabled={creationLimitReached} className="mt-4 w-full bg-indigo-100 text-indigo-700 font-bold py-3 rounded-2xl hover:bg-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    + Criar Nova Trilha de Estudo
+                                </button>
+                                {creationLimitReached && <p className="text-sm text-amber-600 mt-2">Você atingiu seu limite de criação de trilhas por hoje.</p>}
+                            </div>
                         </div>
                     </div>
                 );
-            case 'level_selection':
-                return (
-                    <div className="w-full max-w-2xl">
-                        <h1 className="text-3xl font-bold text-center mb-6">Trilha de Módulos</h1>
-                        <div className="space-y-4">
-                            {studyLevels.map(level => (
-                                <CardButton key={level.id} title={level.title} description={`${level.xpRequired} XP necessários`} disabled={userData.xp < level.xpRequired} onClick={() => handleGenerateFromTopic(level.topic)} icon={userData.xp < level.xpRequired ? '🔒' : '✅'} />
-                            ))}
-                        </div>
-                        <button onClick={handleReturnHome} className="mt-6 text-indigo-500 font-bold">← Voltar</button>
-                    </div>
-                );
-            case 'material_input':
+            case 'create_trail':
                  return (
                     <div className="w-full max-w-2xl">
-                        <h1 className="text-3xl font-bold text-center mb-6">Gerar com Meu Material</h1>
-                        <textarea value={studyMaterial} onChange={(e) => setStudyMaterial(e.target.value)} placeholder="Cole aqui o conteúdo da sua aula..." className="w-full h-60 p-4 border-2 border-slate-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4" />
-                        <button onClick={handleGenerateFromMaterial} className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-transform hover:scale-105 disabled:bg-slate-400" disabled={!studyMaterial.trim()}>Gerar Desafio</button>
+                        <h1 className="text-3xl font-bold text-center mb-6">Criar Nova Trilha</h1>
+                        <input type="text" value={newTrailTitle} onChange={(e) => setNewTrailTitle(e.target.value)} placeholder="Título da Trilha (ex: AWS S3 - Aula 5)" className="w-full p-3 mb-4 border-2 rounded-xl" />
+                        <textarea value={newTrailContent} onChange={(e) => setNewTrailContent(e.target.value)} placeholder="Cole aqui o conteúdo da sua aula..." className="w-full h-60 p-4 border-2 rounded-xl mb-4" />
+                        <button onClick={handleCreateTrail} className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg">Salvar Trilha</button>
                         <button onClick={handleReturnHome} className="mt-6 text-indigo-500 font-bold">← Voltar</button>
+                    </div>
+                );
+            case 'trail_options':
+                return (
+                    <div className="w-full max-w-lg text-center">
+                        <StudyBot status="idle" />
+                        <h1 className="text-3xl font-bold mb-2">{currentTrail.title}</h1>
+                        <p className="text-slate-500 mb-6">O que você gostaria de fazer?</p>
+                        <div className="space-y-4">
+                            <CardButton title="Estudar Material" description="Revise o conteúdo antes do quiz." onClick={() => generateContent(currentTrail, 'study')} icon={<span>📖</span>} />
+                            <CardButton title="Ir Direto para o Quiz" description={`${userData.hearts} corações restantes.`} onClick={() => generateContent(currentTrail, 'quiz')} disabled={userData.hearts <= 0} icon={<span>🧠</span>} />
+                        </div>
+                        {userData.hearts <= 0 && <p className="text-red-500 mt-4">Você está sem corações! Estude o material para recarregá-los.</p>}
+                        <button onClick={handleReturnHome} className="mt-6 text-indigo-500 font-bold">← Voltar</button>
+                    </div>
+                );
+            case 'studying_material':
+                const refreshLimitReached = userData.dailyRefreshes >= MAX_DAILY_REFRESHES && user?.uid !== ROOT_USER_UID;
+                return (
+                     <div className="w-full max-w-3xl bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+                        <div className="flex justify-between items-center mb-4">
+                            <h1 className="text-3xl font-bold">{currentTrail.title}</h1>
+                            <button onClick={() => generateContent(currentTrail, 'study', true)} disabled={refreshLimitReached} title={refreshLimitReached ? 'Limite de atualizações diárias atingido' : 'Gerar novo material de estudo'} className="text-slate-400 hover:text-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                            </button>
+                        </div>
+                        <div className="prose dark:prose-invert max-h-[60vh] overflow-y-auto p-2" dangerouslySetInnerHTML={{ __html: studyContent.replace(/\n/g, '<br />') }}>
+                        </div>
+                        <div className="mt-6 flex justify-between items-center">
+                            <button onClick={() => setAppState('trail_options')} className="text-indigo-500 font-bold">← Voltar</button>
+                            <button onClick={handleFinishStudyAndStartQuiz} className="bg-green-500 text-white font-bold py-3 px-6 rounded-2xl shadow-lg">
+                                {userData.hearts <= 0 ? "Concluir Estudo e Restaurar Corações!" : "Concluir Estudo e Iniciar Quiz"}
+                            </button>
+                        </div>
                     </div>
                 );
             case 'quiz':
@@ -355,7 +505,7 @@ export default function App() {
                             {quizFailed ? 'Oh não!' : 'Desafio Concluído!'}
                         </h2>
                         <p className="text-xl text-slate-600 dark:text-slate-300 mb-4">
-                            {quizFailed ? `Você ficou sem corações. Estude mais um pouco e tente novamente!` : `Você dominou o módulo sobre ${quizTopic}!`}
+                            {quizFailed ? `Você ficou sem corações. Estude mais um pouco e tente novamente!` : `Você dominou o módulo sobre ${currentTrail.title}!`}
                         </p>
                         {!quizFailed && <div className="bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl p-4 mb-6"><p className="text-lg font-bold text-indigo-800 dark:text-indigo-200">XP Ganho: +{lastQuizXp}</p></div>}
                         <button onClick={handleReturnHome} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-2xl shadow-lg transition-transform hover:scale-105">Voltar ao Início</button>
@@ -370,6 +520,7 @@ export default function App() {
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap');
                 body { font-family: 'Nunito', sans-serif; }
+                .prose { max-width: none; }
                 @keyframes fade-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
                 .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
                 @keyframes slide-in-bottom { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
