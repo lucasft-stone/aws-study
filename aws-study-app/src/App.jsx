@@ -234,6 +234,12 @@ export default function App() {
         setQuizFailed(false);
     };
 
+    const handleSelectAnswer = (option) => {
+        if (!isAnswered) {
+            setSelectedAnswer(option);
+        }
+    };
+
     // --- Renderização ---
     const renderContent = () => {
         switch (appState) {
