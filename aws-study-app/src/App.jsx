@@ -381,7 +381,7 @@ export default function App() {
 
     // --- Renderização ---
     const renderContent = () => {
-        if (!userData && ENABLE_FIREBASE_AUTH) {
+                if (!userData && ENABLE_FIREBAE_AUTH && appState !== 'login') {
              return <LoadingScreen text="Carregando dados do usuário..." />;
         }
 
