@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 // Importações do Firebase
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, updateDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, updateDoc, deleteDoc } from 'firebase/firestore';
 import { marked } from 'marked';
 
 // --- FLAG PARA TESTE ---
@@ -56,7 +56,32 @@ const StudyBot = ({ status = 'idle', className = '' }) => {
     );
 };
 const LoadingScreen = ({text}) => ( <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-gray-900 p-4 text-center"><StudyBot status="loading" /><h2 className="text-2xl font-bold text-slate-700 dark:text-slate-200 mt-4">{text || "Carregando..."}</h2></div>);
-const CardButton = ({ title, description, onClick, disabled = false, icon }) => ( <button onClick={onClick} disabled={disabled} className={`relative w-full p-6 text-left bg-white dark:bg-gray-800 rounded-2xl shadow-lg transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-xl hover:-translate-y-1'}`}><div className="flex items-center gap-5"><div>{icon}</div><div><h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{title}</h2><p className="text-slate-500 dark:text-slate-400">{description}</p></div></div>{!disabled && <div className="absolute top-4 right-4 text-slate-400">→</div>}</button>);
+const CardButton = ({ title, description, onClick, disabled = false, icon, onDelete }) => (
+    <div className="relative">
+        <button onClick={onClick} disabled={disabled} className={`w-full p-6 text-left bg-white dark:bg-gray-800 rounded-2xl shadow-lg transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-xl hover:-translate-y-1'}`}>
+            <div className="flex items-center gap-5">
+                <div>{icon}</div>
+                <div>
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{title}</h2>
+                    <p className="text-slate-500 dark:text-slate-400">{description}</p>
+                </div>
+            </div>
+            {!disabled && <div className="absolute top-4 right-4 text-slate-400">→</div>}
+        </button>
+        {onDelete && !disabled && (
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                }}
+                className="absolute top-1/2 right-4 -translate-y-1/2 text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50"
+                aria-label="Apagar trilha"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            </button>
+        )}
+    </div>
+);
 
 // --- Constantes e Trilha de Módulos ---
 const XP_PER_CORRECT_ANSWER = 25;
@@ -66,6 +91,10 @@ const studyLevels = [
     { id: 'level-2', title: 'Armazenamento com S3', content: 'Estudo sobre AWS S3: Buckets, Classes de Armazenamento e Políticas de Ciclo de Vida.', xpRequired: 100, icon: '🗃️' },
     { id: 'level-3', title: 'Computação com EC2', content: 'Estudo sobre AWS EC2: Instâncias, AMIs e Grupos de Segurança.', xpRequired: 250, icon: '💻' },
     { id: 'level-4', title: 'Redes com VPC', content: 'Estudo sobre AWS VPC: Subnets, Tabelas de Rota e Gateways NAT.', xpRequired: 500, icon: '🌐' },
+    { id: 'level-5', title: 'Bancos de Dados com RDS', content: 'Estudo sobre AWS RDS: Instâncias de Banco de Dados, Multi-AZ e Read Replicas.', xpRequired: 750, icon: '🗄️' },
+    { id: 'level-6', title: 'Serverless com Lambda', content: 'Estudo sobre AWS Lambda: Funções, Gatilhos e Integração com API Gateway.', xpRequired: 1000, icon: '⚡' },
+    { id: 'level-7', title: 'Infraestrutura como Código com CloudFormation', content: 'Estudo sobre AWS CloudFormation: Stacks, Templates e Change Sets.', xpRequired: 1250, icon: '🏗️' },
+    { id: 'level-8', title: 'Monitoramento com CloudWatch', content: 'Estudo sobre AWS CloudWatch: Métricas, Alarmes e Logs.', xpRequired: 1500, icon: '📊' },
 ];
 
 // --- Componente Principal ---
@@ -227,10 +256,33 @@ export default function App() {
         setAppState('home');
     };
 
+    const handleDeleteTrail = async (trailId) => {
+        if (!ENABLE_FIREBASE_AUTH || !user) return;
+        if (window.confirm("Tem certeza que deseja apagar esta trilha?")) {
+            const trailRef = doc(db, 'users', user.uid, 'customTrails', trailId);
+            await deleteDoc(trailRef);
+            setCustomTrails(prev => prev.filter(t => t.id !== trailId));
+        }
+    };
+
+    const handleClearCache = async () => {
+        if (!ENABLE_FIREBASE_AUTH || !user) return;
+        if (window.confirm("Tem certeza que deseja apagar todo o cache de materiais de estudo? Isso não afetará seu XP ou trilhas customizadas.")) {
+            const progressCollectionRef = collection(db, 'users', user.uid, 'studyLevelProgress');
+            const querySnapshot = await getDocs(progressCollectionRef);
+            const deletePromises = [];
+            querySnapshot.forEach((doc) => {
+                deletePromises.push(deleteDoc(doc.ref));
+            });
+            await Promise.all(deletePromises);
+            alert("Cache de materiais de estudo foi limpo com sucesso!");
+        }
+    };
+
     const callGeminiAPI = async (payload) => {
         try {
             const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             if (!response.ok) throw new Error(`Erro na API: ${response.statusText}`);
             const result = await response.json();
@@ -423,7 +475,11 @@ export default function App() {
                     <div className="w-full max-w-2xl text-center">
                         <div className="flex justify-between items-center mb-4">
                             <div className="flex items-center gap-2"><img src={user?.photoURL} alt={user?.displayName} className="w-10 h-10 rounded-full" /><span className="font-bold">{user?.displayName}</span></div>
-                            <div className="flex items-center gap-4"><span className="text-xl font-bold text-red-500 flex items-center gap-1">❤️ {userData.hearts}</span>{ENABLE_FIREBASE_AUTH && <button onClick={signOutUser} className="text-sm font-bold text-slate-500">Sair</button>}</div>
+                            <div className="flex items-center gap-4">
+                                <span className="text-xl font-bold text-red-500 flex items-center gap-1">❤️ {userData.hearts}</span>
+                                {ENABLE_FIREBASE_AUTH && <button onClick={handleClearCache} className="text-sm font-bold text-slate-500 hover:text-indigo-600">Limpar Cache</button>}
+                                {ENABLE_FIREBASE_AUTH && <button onClick={signOutUser} className="text-sm font-bold text-slate-500 hover:text-indigo-600">Sair</button>}
+                            </div>
                         </div>
                         <StudyBot status="idle" />
                         <h1 className="text-4xl font-extrabold text-slate-800 dark:text-white mb-2">StudyBot AWS</h1>
@@ -439,7 +495,7 @@ export default function App() {
                             <div>
                                 <h2 className="text-2xl font-bold text-left mb-3">Minhas Trilhas</h2>
                                 {customTrails.length > 0 ? customTrails.map(trail => (
-                                    <CardButton key={trail.id} title={trail.title} description="Sua trilha personalizada" onClick={() => handleSelectTrail(trail)} icon={'📌'} />
+                                    <CardButton key={trail.id} title={trail.title} description="Sua trilha personalizada" onClick={() => handleSelectTrail(trail)} icon={'📌'} onDelete={() => handleDeleteTrail(trail.id)} />
                                 )) : <p className="text-slate-500">Você ainda não criou nenhuma trilha.</p>}
                                 <button onClick={() => setAppState('create_trail')} disabled={creationLimitReached} className="mt-4 w-full bg-indigo-100 text-indigo-700 font-bold py-3 rounded-2xl hover:bg-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed">
                                     + Criar Nova Trilha de Estudo
