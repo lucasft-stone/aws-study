@@ -483,7 +483,7 @@ export default function App() {
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
                             </button>
                         </div>
-                        <div className="prose dark:prose-invert max-h-[60vh] overflow-y-auto p-2" dangerouslySetInnerHTML={{ __html: studyContent.replace(/\n/g, '<br />') }}>
+                        <div className="prose dark:prose-invert max-h-[60vh] overflow-y-auto p-2" dangerouslySetInnerHTML={{ __html: marked(studyContent) }}>
                         </div>
                         <div className="mt-6 flex justify-between items-center">
                             <button onClick={() => setAppState('trail_options')} className="text-indigo-500 font-bold">← Voltar</button>
