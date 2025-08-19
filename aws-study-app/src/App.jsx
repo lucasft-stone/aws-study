@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, updateDoc } from 'firebase/firestore';
+import { marked } from 'marked';
 
 // --- FLAG PARA TESTE ---
 // Mude para 'true' para ativar o login real com Google e salvar no banco de dados.
