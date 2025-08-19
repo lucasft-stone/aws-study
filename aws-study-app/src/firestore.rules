@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Regra para a coleção 'users'
+    match /users/{userId} {
+      // Permite que um usuário leia e escreva em seu próprio documento.
+      // O usuário deve estar autenticado e seu UID deve corresponder ao {userId}.
+      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+      // Permite que um novo usuário crie seu próprio documento.
+      allow create: if request.auth != null;
+
+      // Regra para a subcoleção 'customTrails'
+      match /customTrails/{trailId} {
+        // Permite que o usuário autenticado gerencie seus próprios customTrails.
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Regra para a nova subcoleção 'studyLevelProgress'
+      match /studyLevelProgress/{levelId} {
+        // Permite que o usuário autenticado leia e escreva em seu próprio progresso.
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}

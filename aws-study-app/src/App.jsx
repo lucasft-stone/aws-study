@@ -246,15 +246,21 @@ export default function App() {
 
     const updateTrailCache = async (trailId, cacheKey, content) => {
         if (ENABLE_FIREBASE_AUTH && user) {
-            if (!trailId.startsWith('level-')) {
-                const trailRef = doc(db, 'users', user.uid, 'customTrails', trailId);
-                await updateDoc(trailRef, { [cacheKey]: content });
-            }
+            const isStudyLevel = trailId.startsWith('level-');
+            const collectionName = isStudyLevel ? 'studyLevelProgress' : 'customTrails';
+            const docId = trailId;
+
+            const trailRef = doc(db, 'users', user.uid, collectionName, docId);
+            await setDoc(trailRef, { [cacheKey]: content }, { merge: true });
         }
-        const setTrailsSource = trailId.startsWith('level-') ? () => {} : setCustomTrails;
-        setTrailsSource(prevTrails => prevTrails.map(t => 
-            t.id === trailId ? { ...t, [cacheKey]: content } : t
-        ));
+
+        if (trailId.startsWith('level-')) {
+            setCurrentTrail(prevTrail => ({ ...prevTrail, [cacheKey]: content }));
+        } else {
+            setCustomTrails(prevTrails => prevTrails.map(t =>
+                t.id === trailId ? { ...t, [cacheKey]: content } : t
+            ));
+        }
     };
 
     const generateContent = async (trail, type, forceRefresh = false) => {
@@ -322,8 +328,18 @@ export default function App() {
         generateContent(currentTrail, 'quiz');
     };
 
-    const handleSelectTrail = (trail) => {
-        setCurrentTrail(trail);
+    const handleSelectTrail = async (trail) => {
+        if (ENABLE_FIREBASE_AUTH && user && trail.id.startsWith('level-')) {
+            const progressRef = doc(db, 'users', user.uid, 'studyLevelProgress', trail.id);
+            const docSnap = await getDoc(progressRef);
+            if (docSnap.exists()) {
+                setCurrentTrail({ ...trail, ...docSnap.data() });
+            } else {
+                setCurrentTrail(trail);
+            }
+        } else {
+            setCurrentTrail(trail);
+        }
         setAppState('trail_options');
     };
 
