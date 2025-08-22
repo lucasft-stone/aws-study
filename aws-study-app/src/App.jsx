@@ -41,24 +41,67 @@ if (ENABLE_FIREBASE_AUTH) {
 // --- Componentes de UI e Mascote ---
 const StudyBot = ({ status = 'idle', className = '' }) => {
     const statusProps = {
-        idle: { eyeY: 0, mouth: "M 40 70 Q 50 72 60 70", pupilX: 0, pupilY: 0, antennaRotate: 0 },
-        loading: { eyeY: 0, mouth: "M 45 70 Q 50 65 55 70", pupilX: 0, pupilY: 0, antennaRotate: 0 },
-        correct: { eyeY: -2, mouth: "M 35 65 Q 50 80 65 65", pupilX: 0, pupilY: -1, antennaRotate: 10 },
-        incorrect: { eyeY: 2, mouth: "M 35 70 Q 50 60 65 70", pupilX: 0, pupilY: 1, antennaRotate: -10 },
+        idle: { eyeY: 0, mouth: "M 43 70 C 47 73, 53 73, 57 70", pupilX: 0, pupilY: 0, earRotate: 0 },
+        loading: { eyeY: 0, mouth: "M 48 70 Q 50 68 52 70", pupilX: 0, pupilY: 0, earRotate: 0 },
+        correct: { eyeY: -2, mouth: "M 40 68 C 45 80, 55 80, 60 68", pupilX: 0, pupilY: -1, earRotate: -5 },
+        incorrect: { eyeY: 2, mouth: "M 43 72 C 47 68, 53 68, 57 72", pupilX: 0, pupilY: 1, earRotate: 5 },
     };
     const currentStatus = statusProps[status];
     return (
         <div className={`w-32 h-32 mx-auto mb-4 transition-transform duration-500 transform ${status === 'correct' ? 'scale-110' : ''} ${className}`}>
             <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                <defs><linearGradient id="botBodyGradient" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#818cf8" /><stop offset="100%" stopColor="#6366f1" /></linearGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="3" floodColor="#000000" floodOpacity="0.15" /></filter></defs>
-                <g style={{ transform: `rotate(${currentStatus.antennaRotate}deg)`, transformOrigin: '50px 25px', transition: 'transform 0.4s ease-in-out' }}><line x1="50" y1="25" x2="50" y2="10" stroke="#a78bfa" strokeWidth="2" /><circle cx="50" cy="8" r="4" fill="#c4b5fd" className={status === 'loading' ? 'animate-pulse' : ''} /></g>
-                <path d="M 50,95 C 20,95 10,75 10,50 C 10,25 20,5 50,5 C 80,5 90,25 90,50 C 90,75 80,95 50,95 Z" fill="url(#botBodyGradient)" filter="url(#shadow)" />
-                <g style={{ transition: 'transform 0.3s ease-in-out', transform: `translateY(${currentStatus.eyeY}px)` }}><circle cx="36" cy="48" r="10" fill="white" /><circle cx="64" cy="48" r="10" fill="white" /><circle cx={36 + currentStatus.pupilX} cy={48 + currentStatus.pupilY} r="5" fill="#4338ca" /><circle cx={64 + currentStatus.pupilX} cy={48 + currentStatus.pupilY} r="5" fill="#4338ca" />{status !== 'incorrect' && <><circle cx="39" cy="45" r="2" fill="white" fillOpacity="0.9" /><circle cx="67" cy="45" r="2" fill="white" fillOpacity="0.9" /></>}</g>
-                <path d={currentStatus.mouth} stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" style={{ transition: 'd 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55)' }} />
+                <defs>
+                    <linearGradient id="botBodyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#818cf8" />
+                        <stop offset="100%" stopColor="#6366f1" />
+                    </linearGradient>
+                    <linearGradient id="innerEarGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#c4b5fd" />
+                        <stop offset="100%" stopColor="#a78bfa" />
+                    </linearGradient>
+                    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="4" stdDeviation="3" floodColor="#000000" floodOpacity="0.15" />
+                    </filter>
+                </defs>
+                
+                <g filter="url(#shadow)">
+                    <path d="M 50,95 C 25,95 15,75 15,50 C 15,25 25,10 50,10 C 75,10 85,25 85,50 C 85,75 75,95 50,95 Z" fill="url(#botBodyGradient)" />
+                    <g style={{ transform: `rotate(${currentStatus.earRotate}deg)`, transformOrigin: '35px 25px', transition: 'transform 0.4s ease-in-out' }}>
+                        <path d="M 20 28 C 25 -5, 45 -5, 50 28 Z" fill="url(#botBodyGradient)" />
+                        <path d="M 28 28 C 31 10, 39 10, 42 28 Z" fill="url(#innerEarGradient)" />
+                    </g>
+                    <g style={{ transform: `rotate(${-currentStatus.earRotate}deg)`, transformOrigin: '65px 25px', transition: 'transform 0.4s ease-in-out' }}>
+                        <path d="M 80 28 C 75 -5, 55 -5, 50 28 Z" fill="url(#botBodyGradient)" />
+                        <path d="M 72 28 C 69 10, 61 10, 58 28 Z" fill="url(#innerEarGradient)" />
+                    </g>
+                </g>
+
+                <g style={{ transition: 'transform 0.3s ease-in-out', transform: `translateY(${currentStatus.eyeY}px)` }}>
+                    <circle cx="38" cy="50" r="12" fill="white" />
+                    <circle cx="62" cy="50" r="12" fill="white" />
+                    <circle cx={38 + currentStatus.pupilX} cy={50 + currentStatus.pupilY} r="6" fill="#4338ca" />
+                    <circle cx={62 + currentStatus.pupilX} cy={50 + currentStatus.pupilY} r="6" fill="#4338ca" />
+                    {status !== 'incorrect' && <>
+                        <circle cx="43" cy="45" r="3.5" fill="white" fillOpacity="0.95" />
+                        <circle cx="67" cy="45" r="3.5" fill="white" fillOpacity="0.95" />
+                        <circle cx="36" cy="55" r="1.5" fill="white" fillOpacity="0.7" />
+                        <circle cx="60" cy="55" r="1.5" fill="white" fillOpacity="0.7" />
+                    </>}
+                </g>
+                <path d="M 51.5 60 L 50 63 L 48.5 60 Z" fill="white" />
+                <path d={currentStatus.mouth} stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" style={{ transition: 'd 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55)' }} />
+
+                <g stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.7">
+                    <path d="M 20 60 Q 30 62 38 60" fill="none" />
+                    <path d="M 22 65 Q 32 67 40 65" fill="none" />
+                    <path d="M 80 60 Q 70 62 62 60" fill="none" />
+                    <path d="M 78 65 Q 68 67 60 65" fill="none" />
+                </g>
             </svg>
         </div>
     );
 };
+
 const LoadingScreen = ({text}) => ( <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-gray-900 p-4 text-center"><StudyBot status="loading" /><h2 className="text-2xl font-bold text-slate-700 dark:text-slate-200 mt-4">{text || "Carregando..."}</h2></div>);
 const CardButton = ({ title, description, onClick, disabled = false, icon, onDelete }) => (
     <div className="relative group">
@@ -120,10 +163,19 @@ export default function App() {
     const [botStatus, setBotStatus] = useState('idle');
     const [quizFailed, setQuizFailed] = useState(false);
     
+    const [selectedModel, setSelectedModel] = useState('gemini-2.5-pro'); // Novo estado para o modelo
+
     // Estados para o modo Anki/Flashcard
     const [ankiCards, setAnkiCards] = useState([]);
     const [currentAnkiCardIndex, setCurrentAnkiCardIndex] = useState(0);
     const [isCardFlipped, setIsCardFlipped] = useState(false);
+
+    const geminiModels = [
+        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+        { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite' },
+        { id: 'gemini-live-2.5-flash-preview', name: 'Gemini 2.5 Flash Live' },
+    ];
     
     // --- Gerenciamento de Autenticação e Dados ---
     useEffect(() => {
@@ -239,7 +291,6 @@ export default function App() {
     // --- Lógica de Geração de Conteúdo com Cache e Limites ---
     const handleCreateTrail = async () => {
         if (!newTrailTitle || !newTrailContent) {
-            // Usando um modal customizado ou um erro em tela em vez de alert
             setApiError("Por favor, preencha o título e o conteúdo da trilha.");
             return;
         }
@@ -272,7 +323,6 @@ export default function App() {
 
     const handleDeleteTrail = async (trailId) => {
         if (!ENABLE_FIREBASE_AUTH || !user) return;
-        // Substituindo window.confirm por uma abordagem que não bloqueia
         const userConfirmed = confirm("Tem certeza que deseja apagar esta trilha?");
         if (userConfirmed) {
             const trailRef = doc(db, 'users', user.uid, 'customTrails', trailId);
@@ -292,24 +342,43 @@ export default function App() {
                 deletePromises.push(deleteDoc(doc.ref));
             });
             await Promise.all(deletePromises);
-            // Substituindo alert por um erro em tela
             setApiError("Cache de materiais de estudo foi limpo com sucesso!");
             setTimeout(() => setApiError(''), 3000); // Limpa a mensagem após 3 segundos
         }
     };
 
     const callGeminiAPI = async (payload) => {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        const isRoot = user?.uid === ROOT_USER_UID;
+    
+        const attemptApiCall = async (model) => {
+            try {
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) throw new Error(`Erro na API (${model}): ${response.statusText}`);
+                const result = await response.json();
+                const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!jsonText) throw new Error("A resposta da IA está vazia ou em formato inválido.");
+                return JSON.parse(jsonText);
+            } catch (error) {
+                console.error(`Falha na chamada da API Gemini com o modelo ${model}:`, error);
+                throw error;
+            }
+        };
+    
+        if (isRoot) {
+            try {
+                console.log(`Usuário root detectado. Tentando usar o modelo selecionado: ${selectedModel}.`);
+                return await attemptApiCall(selectedModel);
+            } catch (error) {
+                console.warn(`Falha ao usar o modelo ${selectedModel}. Retornando para o modelo padrão 'gemini-2.5-flash-lite'.`, error);
+                setApiError(`Modelo ${selectedModel} falhou. Usando o padrão. Detalhe: ${error.message}`);
+            }
+        }
+
         try {
-            const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (!response.ok) throw new Error(`Erro na API: ${response.statusText}`);
-            const result = await response.json();
-            const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!jsonText) throw new Error("A resposta da IA está vazia ou em formato inválido.");
-            return JSON.parse(jsonText);
+            return await attemptApiCall('gemini-2.5-flash-lite');
         } catch (error) {
-            console.error("Falha na chamada da API Gemini:", error);
             setApiError(`Não foi possível gerar o conteúdo. Detalhe: ${error.message}`);
             setAppState('home');
             return null;
@@ -531,6 +600,23 @@ export default function App() {
                         <h1 className="text-4xl font-extrabold text-slate-800 dark:text-white mb-2">StudyBot AWS</h1>
                         <p className="text-slate-500 dark:text-slate-300 mb-6">Sua pontuação total: <span className="font-bold text-indigo-500">{userData.xp} XP</span></p>
                         {apiError && <p className="text-red-500 text-sm mb-4 bg-red-100 dark:bg-red-900/30 p-3 rounded-lg">{apiError}</p>}
+                        {user?.uid === ROOT_USER_UID && (
+                            <div className="my-4">
+                                <label htmlFor="model-select" className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">
+                                    Root: Select Gemini Model
+                                </label>
+                                <select
+                                    id="model-select"
+                                    value={selectedModel}
+                                    onChange={(e) => setSelectedModel(e.target.value)}
+                                    className="w-full max-w-xs mx-auto bg-white dark:bg-gray-800 border border-slate-300 dark:border-gray-600 rounded-md shadow-sm p-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                >
+                                    {geminiModels.map(model => (
+                                        <option key={model.id} value={model.id}>{model.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                         
                         <div className="space-y-6">
                             <div>
@@ -607,14 +693,11 @@ export default function App() {
                         <h2 className="text-2xl font-bold mb-2">{currentTrail.title}</h2>
                         <p className="text-slate-500 mb-6 font-bold">Flashcard {currentAnkiCardIndex + 1} de {ankiCards.length}</p>
                         
-                        {/* Flashcard Component */}
                         <div className="w-full h-80 perspective-1000">
                             <div className={`relative w-full h-full transition-transform duration-700 transform-style-3d ${isCardFlipped ? 'rotate-y-180' : ''}`}>
-                                {/* Frente */}
                                 <div className="absolute w-full h-full backface-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-xl flex items-center justify-center p-6 text-center">
                                     <p className="text-2xl font-semibold">{currentCard.front}</p>
                                 </div>
-                                {/* Verso */}
                                 <div className="absolute w-full h-full backface-hidden bg-indigo-100 dark:bg-indigo-900/80 rounded-2xl shadow-xl flex items-center justify-center p-6 text-center transform rotate-y-180">
                                     <p className="text-xl">{currentCard.back}</p>
                                 </div>
