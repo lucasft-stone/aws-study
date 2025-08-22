@@ -29,9 +29,13 @@ const firebaseConfig = {
 // Inicializa o Firebase e os serviços APENAS se a flag estiver ativa
 let app, auth, db;
 if (ENABLE_FIREBASE_AUTH) {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
+    try {
+        app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+    } catch (error) {
+        console.error("Erro ao inicializar o Firebase. Verifique suas credenciais em 'firebaseConfig'.", error);
+    }
 }
 
 // --- Componentes de UI e Mascote ---
@@ -57,16 +61,15 @@ const StudyBot = ({ status = 'idle', className = '' }) => {
 };
 const LoadingScreen = ({text}) => ( <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-gray-900 p-4 text-center"><StudyBot status="loading" /><h2 className="text-2xl font-bold text-slate-700 dark:text-slate-200 mt-4">{text || "Carregando..."}</h2></div>);
 const CardButton = ({ title, description, onClick, disabled = false, icon, onDelete }) => (
-    <div className="relative">
-        <button onClick={onClick} disabled={disabled} className={`w-full p-6 text-left bg-white dark:bg-gray-800 rounded-2xl shadow-lg transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-xl hover:-translate-y-1'}`}>
+    <div className="relative group">
+        <button onClick={onClick} disabled={disabled} className={`w-full mb-4 p-6 text-left bg-white dark:bg-gray-800 rounded-2xl shadow-lg transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-xl hover:-translate-y-1'}`}>
             <div className="flex items-center gap-5">
-                <div>{icon}</div>
+                <div className="text-3xl">{icon}</div>
                 <div>
                     <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{title}</h2>
                     <p className="text-slate-500 dark:text-slate-400">{description}</p>
                 </div>
             </div>
-            {!disabled && <div className="absolute top-4 right-4 text-slate-400">→</div>}
         </button>
         {onDelete && !disabled && (
             <button
@@ -74,7 +77,7 @@ const CardButton = ({ title, description, onClick, disabled = false, icon, onDel
                     e.stopPropagation();
                     onDelete();
                 }}
-                className="absolute top-1/2 right-4 -translate-y-1/2 text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50"
+                className="absolute top-1/2 -right-4 -translate-y-1/2 text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 opacity-0 group-hover:opacity-100 transition-opacity"
                 aria-label="Apagar trilha"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
@@ -117,9 +120,14 @@ export default function App() {
     const [botStatus, setBotStatus] = useState('idle');
     const [quizFailed, setQuizFailed] = useState(false);
     
+    // Estados para o modo Anki/Flashcard
+    const [ankiCards, setAnkiCards] = useState([]);
+    const [currentAnkiCardIndex, setCurrentAnkiCardIndex] = useState(0);
+    const [isCardFlipped, setIsCardFlipped] = useState(false);
+    
     // --- Gerenciamento de Autenticação e Dados ---
     useEffect(() => {
-        if (ENABLE_FIREBASE_AUTH) {
+        if (ENABLE_FIREBASE_AUTH && auth) {
             const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
                 try {
                     if (currentUser) {
@@ -202,7 +210,7 @@ export default function App() {
     };
     
     const signInWithGoogle = async () => {
-        if (!ENABLE_FIREBASE_AUTH) return;
+        if (!ENABLE_FIREBASE_AUTH || !auth) return;
         const provider = new GoogleAuthProvider();
         try {
             setAppState('loading');
@@ -216,7 +224,7 @@ export default function App() {
     };
 
     const signOutUser = async () => {
-        if (!ENABLE_FIREBASE_AUTH) return;
+        if (!ENABLE_FIREBASE_AUTH || !auth) return;
         await signOut(auth);
     };
 
@@ -230,6 +238,11 @@ export default function App() {
 
     // --- Lógica de Geração de Conteúdo com Cache e Limites ---
     const handleCreateTrail = async () => {
+        if (!newTrailTitle || !newTrailContent) {
+            // Usando um modal customizado ou um erro em tela em vez de alert
+            setApiError("Por favor, preencha o título e o conteúdo da trilha.");
+            return;
+        }
         const isRoot = user?.uid === ROOT_USER_UID;
         const limitReached = userData.dailyTrailCreations >= MAX_DAILY_TRAIL_CREATIONS;
         if (limitReached && !isRoot) {
@@ -237,6 +250,7 @@ export default function App() {
             return;
         }
         setAppState('loading');
+        setApiError('');
         const newTrail = { title: newTrailTitle, content: newTrailContent, createdAt: new Date() };
         if (ENABLE_FIREBASE_AUTH && user) {
             const userTrailsRef = collection(db, 'users', user.uid, 'customTrails');
@@ -258,7 +272,9 @@ export default function App() {
 
     const handleDeleteTrail = async (trailId) => {
         if (!ENABLE_FIREBASE_AUTH || !user) return;
-        if (window.confirm("Tem certeza que deseja apagar esta trilha?")) {
+        // Substituindo window.confirm por uma abordagem que não bloqueia
+        const userConfirmed = confirm("Tem certeza que deseja apagar esta trilha?");
+        if (userConfirmed) {
             const trailRef = doc(db, 'users', user.uid, 'customTrails', trailId);
             await deleteDoc(trailRef);
             setCustomTrails(prev => prev.filter(t => t.id !== trailId));
@@ -267,7 +283,8 @@ export default function App() {
 
     const handleClearCache = async () => {
         if (!ENABLE_FIREBASE_AUTH || !user) return;
-        if (window.confirm("Tem certeza que deseja apagar todo o cache de materiais de estudo? Isso não afetará seu XP ou trilhas customizadas.")) {
+        const userConfirmed = confirm("Tem certeza que deseja apagar todo o cache de materiais de estudo? Isso não afetará seu XP ou trilhas customizadas.");
+        if (userConfirmed) {
             const progressCollectionRef = collection(db, 'users', user.uid, 'studyLevelProgress');
             const querySnapshot = await getDocs(progressCollectionRef);
             const deletePromises = [];
@@ -275,7 +292,9 @@ export default function App() {
                 deletePromises.push(deleteDoc(doc.ref));
             });
             await Promise.all(deletePromises);
-            alert("Cache de materiais de estudo foi limpo com sucesso!");
+            // Substituindo alert por um erro em tela
+            setApiError("Cache de materiais de estudo foi limpo com sucesso!");
+            setTimeout(() => setApiError(''), 3000); // Limpa a mensagem após 3 segundos
         }
     };
 
@@ -307,11 +326,12 @@ export default function App() {
             await setDoc(trailRef, { [cacheKey]: content }, { merge: true });
         }
 
-        if (trailId.startsWith('level-')) {
-            setCurrentTrail(prevTrail => ({ ...prevTrail, [cacheKey]: content }));
-        } else {
+        const trailToUpdate = { ...currentTrail, [cacheKey]: content };
+        setCurrentTrail(trailToUpdate);
+        
+        if (!trailId.startsWith('level-')) {
             setCustomTrails(prevTrails => prevTrails.map(t =>
-                t.id === trailId ? { ...t, [cacheKey]: content } : t
+                t.id === trailId ? trailToUpdate : t
             ));
         }
     };
@@ -333,27 +353,43 @@ export default function App() {
         }
         
         setAppState('loading');
+        setApiError('');
         
-        const cacheKey = type === 'study' ? 'cachedStudy' : 'cachedQuiz';
+        const cacheKey = type === 'study' ? 'cachedStudy' : type === 'quiz' ? 'cachedQuiz' : 'cachedAnki';
+        
         if (trail[cacheKey] && !forceRefresh) {
             if (type === 'study') setStudyContent(trail[cacheKey]);
-            else setQuizQuestions(trail[cacheKey]);
-            setAppState(type === 'study' ? 'studying_material' : 'quiz');
+            else if (type === 'quiz') setQuizQuestions(trail[cacheKey]);
+            else if (type === 'anki') setAnkiCards(trail[cacheKey]);
+            
+            resetQuizState();
+            resetAnkiState();
+            setAppState(type === 'study' ? 'studying_material' : type === 'quiz' ? 'quiz' : 'studying_anki');
             return;
         }
         
-        const prompt = type === 'study'
-            ? `Crie um material de estudo didático e engajador sobre o seguinte conteúdo, como se fosse para uma aula. Use analogias e exemplos práticos. Retorne o conteúdo em formato JSON com uma única chave "studyMaterial" contendo o texto em markdown. Conteúdo: """${trail.content}"""`
-            : `Com base no seguinte material, gere um quiz com 5 perguntas de múltipla escolha. Material: """${trail.content}"""`;
+        let prompt, responseSchema;
+
+        switch(type) {
+            case 'study':
+                prompt = `Crie um material de estudo didático e engajador sobre o seguinte conteúdo, como se fosse para uma aula. Use analogias e exemplos práticos. Retorne o conteúdo em formato JSON com uma única chave "studyMaterial" contendo o texto em markdown. Conteúdo: """${trail.content}"""`;
+                responseSchema = { type: "OBJECT", properties: { studyMaterial: { type: "STRING" } }, required: ["studyMaterial"] };
+                break;
+            case 'quiz':
+                prompt = `Com base no seguinte material, gere um quiz com 5 perguntas de múltipla escolha. Material: """${trail.content}"""`;
+                responseSchema = { type: "OBJECT", properties: { questions: { type: "ARRAY", items: { type: "OBJECT", properties: { question: { type: "STRING" }, options: { type: "ARRAY", items: { type: "STRING" } }, correctAnswer: { type: "STRING" }, explanation: { type: "STRING" } }, required: ["question", "options", "correctAnswer", "explanation"] } } }, required: ["questions"] };
+                break;
+            case 'anki':
+                prompt = `Com base no seguinte material, gere um conjunto de 10 flashcards no estilo Anki (perguntas curtas e respostas diretas) para estudo. Material: """${trail.content}"""`;
+                responseSchema = { type: "OBJECT", properties: { cards: { type: "ARRAY", items: { type: "OBJECT", properties: { front: { type: "STRING" }, back: { type: "STRING" } }, required: ["front", "back"] } } }, required: ["cards"] };
+                break;
+            default:
+                return;
+        }
         
         const payload = {
              contents: [{ role: "user", parts: [{ text: prompt }] }],
-             generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: type === 'study' 
-                    ? { type: "OBJECT", properties: { studyMaterial: { type: "STRING" } }, required: ["studyMaterial"] }
-                    : { type: "OBJECT", properties: { questions: { type: "ARRAY", items: { type: "OBJECT", properties: { question: { type: "STRING" }, options: { type: "ARRAY", items: { type: "STRING" } }, correctAnswer: { type: "STRING" }, explanation: { type: "STRING" } }, required: ["question", "options", "correctAnswer", "explanation"] } } }, required: ["questions"] }
-             }
+             generationConfig: { responseMimeType: "application/json", responseSchema }
         };
         
         const parsedData = await callGeminiAPI(payload);
@@ -368,6 +404,11 @@ export default function App() {
                 await updateTrailCache(trail.id, cacheKey, parsedData.questions);
                 resetQuizState();
                 setAppState('quiz');
+            } else if (type === 'anki' && parsedData.cards) {
+                setAnkiCards(parsedData.cards);
+                await updateTrailCache(trail.id, cacheKey, parsedData.cards);
+                resetAnkiState();
+                setAppState('studying_anki');
             }
         }
     };
@@ -396,7 +437,7 @@ export default function App() {
         setAppState('trail_options');
     };
 
-    const handleReturnHome = () => { setAppState('home'); setQuizFailed(false); };
+    const handleReturnHome = () => { setAppState('home'); setQuizFailed(false); setApiError(''); };
     
     const resetQuizState = () => {
         setCurrentQuestionIndex(0);
@@ -406,6 +447,11 @@ export default function App() {
         setBotStatus('idle');
         setLastQuizXp(0);
         setQuizFailed(false);
+    };
+
+    const resetAnkiState = () => {
+        setCurrentAnkiCardIndex(0);
+        setIsCardFlipped(false);
     };
 
     const handleCheckAnswer = () => {
@@ -450,7 +496,7 @@ export default function App() {
 
     // --- Renderização ---
     const renderContent = () => {
-                if (!userData && ENABLE_FIREBASE_AUTH && appState !== 'login') {
+        if (!userData && ENABLE_FIREBASE_AUTH && appState !== 'login') {
              return <LoadingScreen text="Carregando dados do usuário..." />;
         }
 
@@ -484,12 +530,13 @@ export default function App() {
                         <StudyBot status="idle" />
                         <h1 className="text-4xl font-extrabold text-slate-800 dark:text-white mb-2">StudyBot AWS</h1>
                         <p className="text-slate-500 dark:text-slate-300 mb-6">Sua pontuação total: <span className="font-bold text-indigo-500">{userData.xp} XP</span></p>
+                        {apiError && <p className="text-red-500 text-sm mb-4 bg-red-100 dark:bg-red-900/30 p-3 rounded-lg">{apiError}</p>}
                         
                         <div className="space-y-6">
                             <div>
                                 <h2 className="text-2xl font-bold text-left mb-3">Trilhas Guiadas</h2>
                                 {studyLevels.map(level => (
-                                    <CardButton key={level.id} title={level.title} description={`${level.xpRequired} XP necessários`} disabled={userData.xp < level.xpRequired} onClick={() => handleSelectTrail(level)} icon={userData.xp < level.xpRequired ? '🔒' : '✅'} />
+                                    <CardButton key={level.id} title={level.title} description={`${level.xpRequired} XP necessários`} disabled={userData.xp < level.xpRequired} onClick={() => handleSelectTrail(level)} icon={userData.xp < level.xpRequired ? '🔒' : level.icon} />
                                 ))}
                             </div>
                             <div>
@@ -508,25 +555,27 @@ export default function App() {
             case 'create_trail':
                  return (
                     <div className="w-full max-w-2xl">
+                        <button onClick={handleReturnHome} className="text-indigo-500 font-bold mb-4">← Voltar</button>
                         <h1 className="text-3xl font-bold text-center mb-6">Criar Nova Trilha</h1>
+                        {apiError && <p className="text-red-500 text-sm mb-4 bg-red-100 dark:bg-red-900/30 p-3 rounded-lg">{apiError}</p>}
                         <input type="text" value={newTrailTitle} onChange={(e) => setNewTrailTitle(e.target.value)} placeholder="Título da Trilha (ex: AWS S3 - Aula 5)" className="w-full p-3 mb-4 border-2 rounded-xl" />
                         <textarea value={newTrailContent} onChange={(e) => setNewTrailContent(e.target.value)} placeholder="Cole aqui o conteúdo da sua aula..." className="w-full h-60 p-4 border-2 rounded-xl mb-4" />
                         <button onClick={handleCreateTrail} className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg">Salvar Trilha</button>
-                        <button onClick={handleReturnHome} className="mt-6 text-indigo-500 font-bold">← Voltar</button>
                     </div>
                 );
             case 'trail_options':
                 return (
                     <div className="w-full max-w-lg text-center">
+                         <button onClick={handleReturnHome} className="text-indigo-500 font-bold absolute top-6 left-6">← Voltar</button>
                         <StudyBot status="idle" />
                         <h1 className="text-3xl font-bold mb-2">{currentTrail.title}</h1>
                         <p className="text-slate-500 mb-6">O que você gostaria de fazer?</p>
                         <div className="space-y-4">
                             <CardButton title="Estudar Material" description="Revise o conteúdo antes do quiz." onClick={() => generateContent(currentTrail, 'study')} icon={<span>📖</span>} />
+                            <CardButton title="Flashcards (Anki)" description="Memorize os pontos-chave." onClick={() => generateContent(currentTrail, 'anki')} icon={<span>🗂️</span>} />
                             <CardButton title="Ir Direto para o Quiz" description={`${userData.hearts} corações restantes.`} onClick={() => generateContent(currentTrail, 'quiz')} disabled={userData.hearts <= 0} icon={<span>🧠</span>} />
                         </div>
                         {userData.hearts <= 0 && <p className="text-red-500 mt-4">Você está sem corações! Estude o material para recarregá-los.</p>}
-                        <button onClick={handleReturnHome} className="mt-6 text-indigo-500 font-bold">← Voltar</button>
                     </div>
                 );
             case 'studying_material':
@@ -549,7 +598,45 @@ export default function App() {
                         </div>
                     </div>
                 );
+            case 'studying_anki':
+                if (!ankiCards || ankiCards.length === 0) return <LoadingScreen text="Gerando flashcards..." />;
+                const currentCard = ankiCards[currentAnkiCardIndex];
+                return (
+                    <div className="w-full max-w-2xl flex flex-col items-center">
+                        <button onClick={() => setAppState('trail_options')} className="text-indigo-500 font-bold self-start mb-4">← Voltar</button>
+                        <h2 className="text-2xl font-bold mb-2">{currentTrail.title}</h2>
+                        <p className="text-slate-500 mb-6 font-bold">Flashcard {currentAnkiCardIndex + 1} de {ankiCards.length}</p>
+                        
+                        {/* Flashcard Component */}
+                        <div className="w-full h-80 perspective-1000">
+                            <div className={`relative w-full h-full transition-transform duration-700 transform-style-3d ${isCardFlipped ? 'rotate-y-180' : ''}`}>
+                                {/* Frente */}
+                                <div className="absolute w-full h-full backface-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-xl flex items-center justify-center p-6 text-center">
+                                    <p className="text-2xl font-semibold">{currentCard.front}</p>
+                                </div>
+                                {/* Verso */}
+                                <div className="absolute w-full h-full backface-hidden bg-indigo-100 dark:bg-indigo-900/80 rounded-2xl shadow-xl flex items-center justify-center p-6 text-center transform rotate-y-180">
+                                    <p className="text-xl">{currentCard.back}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button onClick={() => setIsCardFlipped(!isCardFlipped)} className="mt-6 w-full max-w-sm bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg">
+                            {isCardFlipped ? 'Ver Pergunta' : 'Virar Cartão'}
+                        </button>
+
+                        <div className="flex justify-between w-full max-w-sm mt-4">
+                            <button onClick={() => { setCurrentAnkiCardIndex(i => i - 1); setIsCardFlipped(false); }} disabled={currentAnkiCardIndex === 0} className="font-bold text-slate-500 disabled:opacity-50">Anterior</button>
+                            <button onClick={() => { setCurrentAnkiCardIndex(i => i + 1); setIsCardFlipped(false); }} disabled={currentAnkiCardIndex === ankiCards.length - 1} className="font-bold text-slate-500 disabled:opacity-50">Próximo</button>
+                        </div>
+
+                        <button onClick={handleFinishStudyAndStartQuiz} className="mt-8 bg-green-500 text-white font-bold py-3 px-6 rounded-2xl shadow-lg">
+                            Iniciar Quiz
+                        </button>
+                    </div>
+                );
             case 'quiz':
+                if (!quizQuestions || quizQuestions.length === 0) return <LoadingScreen text="Gerando quiz..." />;
                 const currentQuestion = quizQuestions[currentQuestionIndex];
                 const progressPercentage = ((currentQuestionIndex + 1) / quizQuestions.length) * 100;
                 return (
@@ -619,6 +706,10 @@ export default function App() {
                 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap');
                 body { font-family: 'Nunito', sans-serif; }
                 .prose { max-width: none; }
+                .perspective-1000 { perspective: 1000px; }
+                .transform-style-3d { transform-style: preserve-3d; }
+                .rotate-y-180 { transform: rotateY(180deg); }
+                .backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
                 @keyframes fade-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
                 .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
                 @keyframes slide-in-bottom { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
