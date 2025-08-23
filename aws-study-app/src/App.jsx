@@ -10,6 +10,10 @@ import { marked } from 'marked';
 // Mude para 'false' para pular o login e testar o app com dados locais.
 const ENABLE_FIREBASE_AUTH = import.meta.env.VITE_ENABLE_FIREBASE_AUTH;
 
+// --- FLAG PARA OCULTAR TRILHAS ---
+// Mude para 'true' no .env para ocultar as trilhas existentes para usuários não-admin.
+const HIDE_EXISTING_TRAILS = import.meta.env.VITE_HIDE_EXISTING_TRAILS === 'true';
+
 // --- CONFIGURAÇÕES DE ADMIN E LIMITES ---
 const ROOT_USER_UID = import.meta.env.VITE_ROOT_USER_UID;
 const MAX_DAILY_REFRESHES = 10;
@@ -619,17 +623,23 @@ export default function App() {
                         )}
                         
                         <div className="space-y-6">
+                            {(!HIDE_EXISTING_TRAILS || user?.uid === ROOT_USER_UID) &&
+                                <>
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-left mb-3">Trilhas Guiadas</h2>
+                                        {studyLevels.map(level => (
+                                            <CardButton key={level.id} title={level.title} description={`${level.xpRequired} XP necessários`} disabled={userData.xp < level.xpRequired} onClick={() => handleSelectTrail(level)} icon={userData.xp < level.xpRequired ? '🔒' : level.icon} />
+                                        ))}
+                                    </div>
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-left mb-3">Minhas Trilhas</h2>
+                                        {customTrails.length > 0 ? customTrails.map(trail => (
+                                            <CardButton key={trail.id} title={trail.title} description="Sua trilha personalizada" onClick={() => handleSelectTrail(trail)} icon={'📌'} onDelete={() => handleDeleteTrail(trail.id)} />
+                                        )) : <p className="text-slate-500">Você ainda não criou nenhuma trilha.</p>}
+                                    </div>
+                                </>
+                            }
                             <div>
-                                <h2 className="text-2xl font-bold text-left mb-3">Trilhas Guiadas</h2>
-                                {studyLevels.map(level => (
-                                    <CardButton key={level.id} title={level.title} description={`${level.xpRequired} XP necessários`} disabled={userData.xp < level.xpRequired} onClick={() => handleSelectTrail(level)} icon={userData.xp < level.xpRequired ? '🔒' : level.icon} />
-                                ))}
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-bold text-left mb-3">Minhas Trilhas</h2>
-                                {customTrails.length > 0 ? customTrails.map(trail => (
-                                    <CardButton key={trail.id} title={trail.title} description="Sua trilha personalizada" onClick={() => handleSelectTrail(trail)} icon={'📌'} onDelete={() => handleDeleteTrail(trail.id)} />
-                                )) : <p className="text-slate-500">Você ainda não criou nenhuma trilha.</p>}
                                 <button onClick={() => setAppState('create_trail')} disabled={creationLimitReached} className="mt-4 w-full bg-indigo-100 text-indigo-700 font-bold py-3 rounded-2xl hover:bg-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed">
                                     + Criar Nova Trilha de Estudo
                                 </button>
