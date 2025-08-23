@@ -604,10 +604,10 @@ export default function App() {
                         <h1 className="text-4xl font-extrabold text-slate-800 dark:text-white mb-2">StudyBot</h1>
                         <p className="text-slate-500 dark:text-slate-300 mb-6">Sua pontuação total: <span className="font-bold text-indigo-500">{userData.xp} XP</span></p>
                         {apiError && <p className="text-red-500 text-sm mb-4 bg-red-100 dark:bg-red-900/30 p-3 rounded-lg">{apiError}</p>}
-                        {user?.uid === ROOT_USER_UID && (
+                        {(
                             <div className="my-4">
                                 <label htmlFor="model-select" className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">
-                                    Root: Select Gemini Model
+                                    Select Gemini Model
                                 </label>
                                 <select
                                     id="model-select"
