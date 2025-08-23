@@ -601,7 +601,7 @@ export default function App() {
                             </div>
                         </div>
                         <StudyBot status="idle" />
-                        <h1 className="text-4xl font-extrabold text-slate-800 dark:text-white mb-2">StudyBot AWS</h1>
+                        <h1 className="text-4xl font-extrabold text-slate-800 dark:text-white mb-2">StudyBot</h1>
                         <p className="text-slate-500 dark:text-slate-300 mb-6">Sua pontuação total: <span className="font-bold text-indigo-500">{userData.xp} XP</span></p>
                         {apiError && <p className="text-red-500 text-sm mb-4 bg-red-100 dark:bg-red-900/30 p-3 rounded-lg">{apiError}</p>}
                         {user?.uid === ROOT_USER_UID && (
@@ -654,7 +654,7 @@ export default function App() {
                         <button onClick={handleReturnHome} className="text-indigo-500 font-bold mb-4">← Voltar</button>
                         <h1 className="text-3xl font-bold text-center mb-6">Criar Nova Trilha</h1>
                         {apiError && <p className="text-red-500 text-sm mb-4 bg-red-100 dark:bg-red-900/30 p-3 rounded-lg">{apiError}</p>}
-                        <input type="text" value={newTrailTitle} onChange={(e) => setNewTrailTitle(e.target.value)} placeholder="Título da Trilha (ex: AWS S3 - Aula 5)" className="w-full p-3 mb-4 border-2 rounded-xl" />
+                        <input type="text" value={newTrailTitle} onChange={(e) => setNewTrailTitle(e.target.value)} placeholder="Título da Trilha (ex: Aula 5)" className="w-full p-3 mb-4 border-2 rounded-xl" />
                         <textarea value={newTrailContent} onChange={(e) => setNewTrailContent(e.target.value)} placeholder="Cole aqui o conteúdo da sua aula..." className="w-full h-60 p-4 border-2 rounded-xl mb-4" />
                         <button onClick={handleCreateTrail} className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg">Salvar Trilha</button>
                     </div>

@@ -11,9 +11,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'AWS Study App',
-        short_name: 'AWS Study',
-        description: 'An application to study AWS concepts.',
+        name: 'Study App',
+        short_name: 'Study',
+        description: 'An application to study concepts.',
         theme_color: '#ffffff',
         icons: [
           {
