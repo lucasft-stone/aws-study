@@ -3,7 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, updateDoc, deleteDoc } from 'firebase/firestore';
-import { marked } from 'marked';
+import { GoogleGenAI } from "@google/genai";
+import { marked } from "marked";
+
+// --- CONFIGURAÇÕES DO GEMINI ---
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const genAI = new GoogleGenAI({ apiKey });
 
 // --- FLAG PARA TESTE ---
 // Mude para 'true' para ativar o login real com Google e salvar no banco de dados.
@@ -85,12 +90,12 @@ const StudyBot = ({ status = 'idle', className = '' }) => {
                     <circle cx="62" cy="50" r="12" fill="white" />
                     <circle cx={38 + currentStatus.pupilX} cy={50 + currentStatus.pupilY} r="6" fill="#4338ca" />
                     <circle cx={62 + currentStatus.pupilX} cy={50 + currentStatus.pupilY} r="6" fill="#4338ca" />
-                    {status !== 'incorrect' && <>
+                    {status !== 'incorrect' && <g>
                         <circle cx="43" cy="45" r="3.5" fill="white" fillOpacity="0.95" />
                         <circle cx="67" cy="45" r="3.5" fill="white" fillOpacity="0.95" />
                         <circle cx="36" cy="55" r="1.5" fill="white" fillOpacity="0.7" />
                         <circle cx="60" cy="55" r="1.5" fill="white" fillOpacity="0.7" />
-                    </>}
+                    </g>}
                 </g>
                 <path d="M 51.5 60 L 50 63 L 48.5 60 Z" fill="white" />
                 <path d={currentStatus.mouth} stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" style={{ transition: 'd 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55)' }} />
@@ -107,6 +112,30 @@ const StudyBot = ({ status = 'idle', className = '' }) => {
 };
 
 const LoadingScreen = ({text}) => ( <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-gray-900 p-4 text-center"><StudyBot status="loading" /><h2 className="text-2xl font-bold text-slate-700 dark:text-slate-200 mt-4">{text || "Carregando..."}</h2></div>);
+
+class ErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError(error) {
+        return { hasError: true };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        console.error("ErrorBoundary caught an error", error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-gray-900 p-4 text-center"><StudyBot status="incorrect" /><h2 className="text-2xl font-bold text-red-500 mt-4">Ops! Algo deu errado.</h2><p className="text-slate-500 dark:text-slate-400 mb-6">Tente recarregar a página.</p><button onClick={() => window.location.reload()} className="bg-indigo-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:scale-105 transition-transform">Recarregar</button></div>;
+        }
+
+        return this.props.children;
+    }
+}
+
 const CardButton = ({ title, description, onClick, disabled = false, icon, onDelete }) => (
     <div className="relative group">
         <button onClick={onClick} disabled={disabled} className={`w-full mb-4 p-6 text-left bg-white dark:bg-gray-800 rounded-2xl shadow-lg transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-xl hover:-translate-y-1'}`}>
@@ -179,6 +208,8 @@ export default function App() {
         { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
         { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite' },
         { id: 'gemini-live-2.5-flash-preview', name: 'Gemini 2.5 Flash Live' },
+        { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro' },
+        { id: 'gemini-3-flash-preview', name: 'Gemini 3.0 Flash' }
     ];
     
     // --- Gerenciamento de Autenticação e Dados ---
@@ -352,42 +383,44 @@ export default function App() {
     };
 
     const callGeminiAPI = async (payload) => {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        const isRoot = user?.uid === ROOT_USER_UID;
-    
-        const attemptApiCall = async (model) => {
-            try {
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (!response.ok) throw new Error(`Erro na API (${model}): ${response.statusText}`);
-                const result = await response.json();
-                const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (!jsonText) throw new Error("A resposta da IA está vazia ou em formato inválido.");
-                return JSON.parse(jsonText);
-            } catch (error) {
-                console.error(`Falha na chamada da API Gemini com o modelo ${model}:`, error);
-                throw error;
-            }
-        };
-    
-        if (isRoot) {
-            try {
-                console.log(`Usuário root detectado. Tentando usar o modelo selecionado: ${selectedModel}.`);
-                return await attemptApiCall(selectedModel);
-            } catch (error) {
-                console.warn(`Falha ao usar o modelo ${selectedModel}. Retornando para o modelo padrão 'gemini-2.5-flash-lite'.`, error);
-                setApiError(`Modelo ${selectedModel} falhou. Usando o padrão. Detalhe: ${error.message}`);
-            }
-        }
+    const isRoot = user?.uid === ROOT_USER_UID;
 
+    const attemptApiCall = async (model) => {
         try {
-            return await attemptApiCall('gemini-2.5-flash-lite');
+            const response = await genAI.models.generateContent({
+                model: model,
+                contents: payload.contents,
+                config: payload.generationConfig,
+            });
+            const jsonText = response.text;
+            if (!jsonText) {
+                throw new Error("A resposta da IA está vazia ou em formato inválido.");
+            }
+            return JSON.parse(jsonText);
         } catch (error) {
-            setApiError(`Não foi possível gerar o conteúdo. Detalhe: ${error.message}`);
-            setAppState('home');
-            return null;
+            console.error(`Falha na chamada da API Gemini com o modelo ${model}:`, error);
+            throw error;
         }
     };
+
+    if (isRoot) {
+        try {
+            console.log(`Usuário root detectado. Tentando usar o modelo selecionado: ${selectedModel}.`);
+            return await attemptApiCall(selectedModel);
+        } catch (error) {
+            console.warn(`Falha ao usar o modelo ${selectedModel}. Retornando para o modelo padrão 'gemini-2.5-flash-lite'.`, error);
+            setApiError(`Modelo ${selectedModel} falhou. Usando o padrão. Detalhe: ${error.message}`);
+        }
+    }
+
+    try {
+        return await attemptApiCall('gemini-2.5-flash-lite');
+    } catch (error) {
+        setApiError(`Não foi possível gerar o conteúdo. Detalhe: ${error.message}`);
+        setAppState('home');
+        return null;
+    }
+};
 
     const updateTrailCache = async (trailId, cacheKey, content) => {
         if (ENABLE_FIREBASE_AUTH && user) {
@@ -810,9 +843,11 @@ export default function App() {
                 @keyframes xp-gain { 0% { opacity: 1; transform: translateY(0) scale(0.8); } 100% { opacity: 0; transform: translateY(-60px) scale(1.2); } }
                 .animate-xp-gain { animation: xp-gain 1.5s ease-out forwards; }
             `}</style>
-            <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-gray-900 p-4 text-slate-700 dark:text-slate-200 animate-fade-in">
-                {renderContent()}
-            </div>
+            <ErrorBoundary>
+                <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-gray-900 p-4 text-slate-700 dark:text-slate-200 animate-fade-in">
+                    {renderContent()}
+                </div>
+            </ErrorBoundary>
         </>
     );
 }
