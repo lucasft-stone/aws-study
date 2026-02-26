@@ -196,7 +196,7 @@ export default function App() {
     const [botStatus, setBotStatus] = useState('idle');
     const [quizFailed, setQuizFailed] = useState(false);
     
-    const [selectedModel, setSelectedModel] = useState('gemini-2.5-pro'); // Novo estado para o modelo
+    const [selectedModel, setSelectedModel] = useState('gemma-3-27b-it'); // Novo estado para o modelo
 
     // Estados para o modo Anki/Flashcard
     const [ankiCards, setAnkiCards] = useState([]);
@@ -204,12 +204,10 @@ export default function App() {
     const [isCardFlipped, setIsCardFlipped] = useState(false);
 
     const geminiModels = [
-        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+        { id: 'gemma-3-27b-it', name: 'Gemma 3.27B IT' },
+        { id: 'gemini-3-flash-preview', name: 'Gemini 3.0 Flash' },
         { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
         { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite' },
-        { id: 'gemini-live-2.5-flash-preview', name: 'Gemini 2.5 Flash Live' },
-        { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro' },
-        { id: 'gemini-3-flash-preview', name: 'Gemini 3.0 Flash' }
     ];
     
     // --- Gerenciamento de Autenticação e Dados ---
@@ -387,12 +385,26 @@ export default function App() {
 
     const attemptApiCall = async (model) => {
         try {
+            // Adaptação para modelos que não suportam JSON mode (ex: Gemma)
+            let config = payload.generationConfig;
+            if (model.includes('gemma')) {
+                config = { ...config };
+                delete config.responseMimeType;
+                delete config.responseSchema;
+            }
+
             const response = await genAI.models.generateContent({
                 model: model,
                 contents: payload.contents,
-                config: payload.generationConfig,
+                config: config,
             });
-            const jsonText = response.text;
+            let jsonText = response.text;
+
+            // Limpeza de blocos de código Markdown caso o modelo retorne ```json ... ```
+            if (jsonText && typeof jsonText === 'string') {
+                jsonText = jsonText.replace(/```json\n?|```/g, '').trim();
+            }
+
             if (!jsonText) {
                 throw new Error("A resposta da IA está vazia ou em formato inválido.");
             }
@@ -408,13 +420,13 @@ export default function App() {
             console.log(`Usuário root detectado. Tentando usar o modelo selecionado: ${selectedModel}.`);
             return await attemptApiCall(selectedModel);
         } catch (error) {
-            console.warn(`Falha ao usar o modelo ${selectedModel}. Retornando para o modelo padrão 'gemini-2.5-flash-lite'.`, error);
-            setApiError(`Modelo ${selectedModel} falhou. Usando o padrão. Detalhe: ${error.message}`);
+            console.warn(`Falha ao usar o modelo ${selectedModel}. Retornando para o modelo padrão 'gemini-3-flash-preview'.`, error);
+            // setApiError(`Modelo ${selectedModel} falhou. Usando o padrão. Detalhe: ${error.message}`);
         }
     }
 
     try {
-        return await attemptApiCall('gemini-2.5-flash-lite');
+        return await attemptApiCall('gemini-3-flash-preview');
     } catch (error) {
         setApiError(`Não foi possível gerar o conteúdo. Detalhe: ${error.message}`);
         setAppState('home');
