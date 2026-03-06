@@ -490,7 +490,7 @@ export default function App() {
 
         switch(type) {
             case 'study':
-                prompt = `Crie um material de estudo didático e engajador sobre o seguinte conteúdo, como se fosse para uma aula. Use analogias e exemplos práticos. Retorne o conteúdo em formato JSON com uma única chave "studyMaterial" contendo o texto em markdown. Conteúdo: """${trail.content}"""`;
+                prompt = `Crie um material de estudo didático e engajador sobre o seguinte conteúdo, como se fosse para uma aula. Use analogias e exemplos práticos. IMPORTANTE: Formate todos os exemplos de código, JSON, políticas IAM ou scripts dentro de blocos de código Markdown (\`\`\`) e certifique-se de que estejam bem indentados. Retorne o conteúdo em formato JSON com uma única chave "studyMaterial" contendo o texto em markdown. Conteúdo: """${trail.content}"""`;
                 responseSchema = { type: "OBJECT", properties: { studyMaterial: { type: "STRING" } }, required: ["studyMaterial"] };
                 break;
             case 'quiz':
@@ -721,19 +721,21 @@ export default function App() {
                 );
             case 'studying_material':
                 const refreshLimitReached = userData.dailyRefreshes >= MAX_DAILY_REFRESHES && user?.uid !== ROOT_USER_UID;
+                // Garante que quebras de linha escapadas sejam tratadas e configura o marked
+                const formattedContent = marked.parse(studyContent.replace(/\\n/g, '\n'), { breaks: true, gfm: true });
                 return (
-                     <div className="w-full max-w-3xl bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-                        <div className="flex justify-between items-center mb-4">
-                            <h1 className="text-3xl font-bold">{currentTrail.title}</h1>
-                            <button onClick={() => generateContent(currentTrail, 'study', true)} disabled={refreshLimitReached} title={refreshLimitReached ? 'Limite de atualizações diárias atingido' : 'Gerar novo material de estudo'} className="text-slate-400 hover:text-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                     <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 flex flex-col h-[85vh]">
+                        <div className="flex justify-between items-center mb-6 flex-shrink-0">
+                            <h1 className="text-3xl font-bold text-slate-800 dark:text-white">{currentTrail.title}</h1>
+                            <button onClick={() => generateContent(currentTrail, 'study', true)} disabled={refreshLimitReached} title={refreshLimitReached ? 'Limite de atualizações diárias atingido' : 'Gerar novo material de estudo'} className="text-slate-400 hover:text-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors p-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
                             </button>
                         </div>
-                        <div className="prose dark:prose-invert max-h-[60vh] overflow-y-auto p-2" dangerouslySetInnerHTML={{ __html: marked(studyContent) }}>
+                        <div className="markdown-content flex-grow overflow-y-auto pr-4 custom-scrollbar" dangerouslySetInnerHTML={{ __html: formattedContent }}>
                         </div>
-                        <div className="mt-6 flex justify-between items-center">
-                            <button onClick={() => setAppState('trail_options')} className="text-indigo-500 font-bold">← Voltar</button>
-                            <button onClick={handleFinishStudyAndStartQuiz} className="bg-green-500 text-white font-bold py-3 px-6 rounded-2xl shadow-lg">
+                        <div className="mt-6 flex justify-between items-center flex-shrink-0 pt-4 border-t border-slate-100 dark:border-gray-700">
+                            <button onClick={() => setAppState('trail_options')} className="text-indigo-500 font-bold hover:text-indigo-700 transition-colors">← Voltar</button>
+                            <button onClick={handleFinishStudyAndStartQuiz} className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg transition-transform hover:scale-105">
                                 {userData.hearts <= 0 ? "Concluir Estudo e Restaurar Corações!" : "Concluir Estudo e Iniciar Quiz"}
                             </button>
                         </div>
@@ -854,6 +856,55 @@ export default function App() {
                 .animate-slide-in-bottom { animation: slide-in-bottom 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
                 @keyframes xp-gain { 0% { opacity: 1; transform: translateY(0) scale(0.8); } 100% { opacity: 0; transform: translateY(-60px) scale(1.2); } }
                 .animate-xp-gain { animation: xp-gain 1.5s ease-out forwards; }
+                
+                /* Estilos aprimorados para Markdown */
+                .markdown-content { line-height: 1.8; font-size: 1.15rem; color: #334155; }
+                .dark .markdown-content { color: #f1f5f9; }
+                
+                /* Cabeçalhos */
+                .markdown-content h1, .markdown-content h2, .markdown-content h3 { margin-top: 2em; margin-bottom: 1em; font-weight: 800; line-height: 1.3; }
+                .markdown-content h1 { font-size: 2.2rem; color: #4f46e5; border-bottom: 3px solid #e2e8f0; padding-bottom: 0.5rem; }
+                .dark .markdown-content h1 { color: #a5b4fc; border-color: #4b5563; }
+                .markdown-content h2 { font-size: 1.8rem; color: #4338ca; border-left: 5px solid #6366f1; padding-left: 1rem; }
+                .dark .markdown-content h2 { color: #c7d2fe; border-color: #818cf8; }
+                .markdown-content h3 { font-size: 1.4rem; color: #1e293b; margin-top: 1.5em; }
+                .dark .markdown-content h3 { color: #e2e8f0; }
+                
+                /* Texto e Listas */
+                .markdown-content p { margin-bottom: 1.25em; text-align: justify; }
+                .markdown-content ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1.25em; }
+                .markdown-content ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 1.25em; }
+                .markdown-content li { margin-bottom: 0.75em; padding-left: 0.5em; }
+                .markdown-content blockquote { border-left: 4px solid #6366f1; padding: 1rem; font-style: italic; color: #4b5563; margin-bottom: 1.5em; background-color: #f8fafc; border-radius: 0 0.5rem 0.5rem 0; }
+                .dark .markdown-content blockquote { border-color: #818cf8; color: #cbd5e1; background-color: #111827; }
+                .markdown-content strong { color: #0f172a; font-weight: 800; }
+                .dark .markdown-content strong { color: #f8fafc; }
+                .markdown-content a { color: #4f46e5; text-decoration: underline; text-underline-offset: 2px; }
+                .dark .markdown-content a { color: #a5b4fc; }
+                
+                /* Tabelas */
+                .markdown-content table { width: 100%; border-collapse: collapse; margin: 2em 0; font-size: 1rem; }
+                .markdown-content th, .markdown-content td { border: 1px solid #cbd5e1; padding: 1rem; text-align: left; }
+                .markdown-content th { background-color: #f1f5f9; font-weight: 800; color: #1e293b; }
+                .markdown-content tr:nth-child(even) { background-color: #f8fafc; }
+                .dark .markdown-content th, .dark .markdown-content td { border-color: #4b5563; }
+                .dark .markdown-content th { background-color: #374151; color: #f1f5f9; }
+                .dark .markdown-content tr:nth-child(even) { background-color: #111827; }
+
+                /* Código */
+                .markdown-content code { font-family: 'Courier New', Courier, monospace; background-color: #e2e8f0; padding: 0.2em 0.4em; border-radius: 0.25em; font-size: 0.95em; color: #be185d; font-weight: 600; }
+                .dark .markdown-content code { background-color: #374151; color: #f9a8d4; }
+                .markdown-content pre { background-color: #1e293b; color: #f8fafc; padding: 1.5em; border-radius: 0.75em; overflow-x: auto; margin-bottom: 2em; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); tab-size: 2; }
+                .dark .markdown-content pre { background-color: #020617; border-color: #1e293b; }
+                .markdown-content pre code { background-color: transparent; color: inherit; padding: 0; font-size: 1em; font-weight: 400; border: none; }
+                
+                /* Scrollbar personalizada */
+                .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; border: 3px solid transparent; background-clip: content-box; }
+                .custom-scrollbar:hover::-webkit-scrollbar-thumb { background-color: #94a3b8; }
+                .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; }
+                .dark .custom-scrollbar:hover::-webkit-scrollbar-thumb { background-color: #64748b; }
             `}</style>
             <ErrorBoundary>
                 <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-gray-900 p-4 text-slate-700 dark:text-slate-200 animate-fade-in">
