@@ -4,7 +4,19 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, updateDoc, deleteDoc } from 'firebase/firestore';
 import { GoogleGenAI } from "@google/genai";
-import { marked } from "marked";
+
+// Importações dos Componentes Refatorados
+import StudyBot from './components/StudyBot';
+import LoadingScreen from './components/LoadingScreen';
+import ErrorBoundary from './components/ErrorBoundary';
+import Login from './components/Login';
+import Home from './components/Home';
+import CreateTrail from './components/CreateTrail';
+import TrailOptions from './components/TrailOptions';
+import StudyMaterial from './components/StudyMaterial';
+import StudyAnki from './components/StudyAnki';
+import Quiz from './components/Quiz';
+import Completed from './components/Completed';
 
 // --- CONFIGURAÇÕES DO GEMINI ---
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -13,7 +25,7 @@ const genAI = new GoogleGenAI({ apiKey });
 // --- FLAG PARA TESTE ---
 // Mude para 'true' para ativar o login real com Google e salvar no banco de dados.
 // Mude para 'false' para pular o login e testar o app com dados locais.
-const ENABLE_FIREBASE_AUTH = import.meta.env.VITE_ENABLE_FIREBASE_AUTH;
+const ENABLE_FIREBASE_AUTH = import.meta.env.VITE_ENABLE_FIREBASE_AUTH === 'true';
 
 // --- FLAG PARA OCULTAR TRILHAS ---
 // Mude para 'true' no .env para ocultar as trilhas existentes para usuários não-admin.
@@ -47,121 +59,6 @@ if (ENABLE_FIREBASE_AUTH) {
     }
 }
 
-// --- Componentes de UI e Mascote ---
-const StudyBot = ({ status = 'idle', className = '' }) => {
-    const statusProps = {
-        idle: { eyeY: 0, mouth: "M 43 70 C 47 73, 53 73, 57 70", pupilX: 0, pupilY: 0, earRotate: 0 },
-        loading: { eyeY: 0, mouth: "M 48 70 Q 50 68 52 70", pupilX: 0, pupilY: 0, earRotate: 0 },
-        correct: { eyeY: -2, mouth: "M 40 68 C 45 80, 55 80, 60 68", pupilX: 0, pupilY: -1, earRotate: -5 },
-        incorrect: { eyeY: 2, mouth: "M 43 72 C 47 68, 53 68, 57 72", pupilX: 0, pupilY: 1, earRotate: 5 },
-    };
-    const currentStatus = statusProps[status];
-    return (
-        <div className={`w-32 h-32 mx-auto mb-4 transition-transform duration-500 transform ${status === 'correct' ? 'scale-110' : ''} ${className}`}>
-            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <linearGradient id="botBodyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#818cf8" />
-                        <stop offset="100%" stopColor="#6366f1" />
-                    </linearGradient>
-                    <linearGradient id="innerEarGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#c4b5fd" />
-                        <stop offset="100%" stopColor="#a78bfa" />
-                    </linearGradient>
-                    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="4" stdDeviation="3" floodColor="#000000" floodOpacity="0.15" />
-                    </filter>
-                </defs>
-                
-                <g filter="url(#shadow)">
-                    <path d="M 50,95 C 25,95 15,75 15,50 C 15,25 25,10 50,10 C 75,10 85,25 85,50 C 85,75 75,95 50,95 Z" fill="url(#botBodyGradient)" />
-                    <g style={{ transform: `rotate(${currentStatus.earRotate}deg)`, transformOrigin: '35px 25px', transition: 'transform 0.4s ease-in-out' }}>
-                        <path d="M 20 28 C 25 -5, 45 -5, 50 28 Z" fill="url(#botBodyGradient)" />
-                        <path d="M 28 28 C 31 10, 39 10, 42 28 Z" fill="url(#innerEarGradient)" />
-                    </g>
-                    <g style={{ transform: `rotate(${-currentStatus.earRotate}deg)`, transformOrigin: '65px 25px', transition: 'transform 0.4s ease-in-out' }}>
-                        <path d="M 80 28 C 75 -5, 55 -5, 50 28 Z" fill="url(#botBodyGradient)" />
-                        <path d="M 72 28 C 69 10, 61 10, 58 28 Z" fill="url(#innerEarGradient)" />
-                    </g>
-                </g>
-
-                <g style={{ transition: 'transform 0.3s ease-in-out', transform: `translateY(${currentStatus.eyeY}px)` }}>
-                    <circle cx="38" cy="50" r="12" fill="white" />
-                    <circle cx="62" cy="50" r="12" fill="white" />
-                    <circle cx={38 + currentStatus.pupilX} cy={50 + currentStatus.pupilY} r="6" fill="#4338ca" />
-                    <circle cx={62 + currentStatus.pupilX} cy={50 + currentStatus.pupilY} r="6" fill="#4338ca" />
-                    {status !== 'incorrect' && <g>
-                        <circle cx="43" cy="45" r="3.5" fill="white" fillOpacity="0.95" />
-                        <circle cx="67" cy="45" r="3.5" fill="white" fillOpacity="0.95" />
-                        <circle cx="36" cy="55" r="1.5" fill="white" fillOpacity="0.7" />
-                        <circle cx="60" cy="55" r="1.5" fill="white" fillOpacity="0.7" />
-                    </g>}
-                </g>
-                <path d="M 51.5 60 L 50 63 L 48.5 60 Z" fill="white" />
-                <path d={currentStatus.mouth} stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" style={{ transition: 'd 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55)' }} />
-
-                <g stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.7">
-                    <path d="M 20 60 Q 30 62 38 60" fill="none" />
-                    <path d="M 22 65 Q 32 67 40 65" fill="none" />
-                    <path d="M 80 60 Q 70 62 62 60" fill="none" />
-                    <path d="M 78 65 Q 68 67 60 65" fill="none" />
-                </g>
-            </svg>
-        </div>
-    );
-};
-
-const LoadingScreen = ({text}) => ( <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-gray-900 p-4 text-center"><StudyBot status="loading" /><h2 className="text-2xl font-bold text-slate-700 dark:text-slate-200 mt-4">{text || "Carregando..."}</h2></div>);
-
-class ErrorBoundary extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = { hasError: false };
-    }
-
-    static getDerivedStateFromError(error) {
-        return { hasError: true };
-    }
-
-    componentDidCatch(error, errorInfo) {
-        console.error("ErrorBoundary caught an error", error, errorInfo);
-    }
-
-    render() {
-        if (this.state.hasError) {
-            return <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-gray-900 p-4 text-center"><StudyBot status="incorrect" /><h2 className="text-2xl font-bold text-red-500 mt-4">Ops! Algo deu errado.</h2><p className="text-slate-500 dark:text-slate-400 mb-6">Tente recarregar a página.</p><button onClick={() => window.location.reload()} className="bg-indigo-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:scale-105 transition-transform">Recarregar</button></div>;
-        }
-
-        return this.props.children;
-    }
-}
-
-const CardButton = ({ title, description, onClick, disabled = false, icon, onDelete }) => (
-    <div className="relative group">
-        <button onClick={onClick} disabled={disabled} className={`w-full mb-4 p-6 text-left bg-white dark:bg-gray-800 rounded-2xl shadow-lg transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-xl hover:-translate-y-1'}`}>
-            <div className="flex items-center gap-5">
-                <div className="text-3xl">{icon}</div>
-                <div>
-                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{title}</h2>
-                    <p className="text-slate-500 dark:text-slate-400">{description}</p>
-                </div>
-            </div>
-        </button>
-        {onDelete && !disabled && (
-            <button
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete();
-                }}
-                className="absolute top-1/2 -right-4 -translate-y-1/2 text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 opacity-0 group-hover:opacity-100 transition-opacity"
-                aria-label="Apagar trilha"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-            </button>
-        )}
-    </div>
-);
-
 // --- Constantes e Trilha de Módulos ---
 const XP_PER_CORRECT_ANSWER = 25;
 const MAX_HEARTS = 5;
@@ -176,7 +73,6 @@ const studyLevels = [
     { id: 'level-8', title: 'Monitoramento com CloudWatch', content: 'Estudo sobre AWS CloudWatch: Métricas, Alarmes e Logs.', xpRequired: 1500, icon: '📊' },
 ];
 
-// --- Componente Principal ---
 export default function App() {
     const [appState, setAppState] = useState('loading');
     const [user, setUser] = useState(null);
@@ -196,7 +92,7 @@ export default function App() {
     const [botStatus, setBotStatus] = useState('idle');
     const [quizFailed, setQuizFailed] = useState(false);
     
-    const [selectedModel, setSelectedModel] = useState('gemma-3-27b-it'); // Novo estado para o modelo
+    const [selectedModel, setSelectedModel] = useState('gemma-3-27b-it');
 
     // Estados para o modo Anki/Flashcard
     const [ankiCards, setAnkiCards] = useState([]);
@@ -253,7 +149,7 @@ export default function App() {
                 lastRefreshDate: today, dailyRefreshes: 0,
                 lastTrailCreationDate: today, dailyTrailCreations: 0
             });
-            setCustomTrails([{id: '1', title: 'Minha Primeira Trilha', content: 'Este é um teste.'}]);
+            setCustomTrails([{id: '1', title: 'Minha Primeira Trilha', content: 'Este é um teste de AWS IAM e Buckets S3.'}]);
             setAppState('home');
         }
     }, []);
@@ -287,7 +183,7 @@ export default function App() {
     };
 
     const fetchCustomTrails = async (uid) => {
-        if (!ENABLE_FIREBASE_AUTH || !db) return; // Ignora se o Firebase estiver desativado
+        if (!ENABLE_FIREBASE_AUTH || !db) return;
         const trailsQuery = query(collection(db, 'users', uid, 'customTrails'));
         const querySnapshot = await getDocs(trailsQuery);
         const trails = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -314,14 +210,15 @@ export default function App() {
     };
 
     const updateUserData = async (newData) => {
-        if (!ENABLE_FIREBASE_AUTH || !user) return; // Ignora se o Firebase estiver desativado
-        const userRef = doc(db, 'users', user.uid);
         const updatedData = { ...userData, ...newData };
-        await setDoc(userRef, updatedData, { merge: true });
         setUserData(updatedData);
-    };
 
-    // --- Lógica de Geração de Conteúdo com Cache e Limites ---
+        if (ENABLE_FIREBASE_AUTH && user) {
+            const userRef = doc(db, 'users', user.uid);
+            await setDoc(userRef, updatedData, { merge: true });
+        }
+    };
+    
     const handleCreateTrail = async () => {
         if (!newTrailTitle || !newTrailContent) {
             setApiError("Por favor, preencha o título e o conteúdo da trilha.");
@@ -346,20 +243,17 @@ export default function App() {
         setNewTrailTitle('');
         setNewTrailContent('');
         const updatedLimits = { dailyTrailCreations: userData.dailyTrailCreations + 1 };
-        if (ENABLE_FIREBASE_AUTH) {
-            updateUserData(updatedLimits);
-        } else {
-            setUserData(prev => ({...prev, ...updatedLimits}));
-        }
+        updateUserData(updatedLimits);
         setAppState('home');
     };
 
     const handleDeleteTrail = async (trailId) => {
-        if (!ENABLE_FIREBASE_AUTH || !user) return;
         const userConfirmed = confirm("Tem certeza que deseja apagar esta trilha?");
         if (userConfirmed) {
-            const trailRef = doc(db, 'users', user.uid, 'customTrails', trailId);
-            await deleteDoc(trailRef);
+            if (ENABLE_FIREBASE_AUTH && user) {
+                const trailRef = doc(db, 'users', user.uid, 'customTrails', trailId);
+                await deleteDoc(trailRef);
+            }
             setCustomTrails(prev => prev.filter(t => t.id !== trailId));
         }
     };
@@ -376,63 +270,60 @@ export default function App() {
             });
             await Promise.all(deletePromises);
             setApiError("Cache de materiais de estudo foi limpo com sucesso!");
-            setTimeout(() => setApiError(''), 3000); // Limpa a mensagem após 3 segundos
+            setTimeout(() => setApiError(''), 3000);
         }
     };
 
     const callGeminiAPI = async (payload) => {
-    const isRoot = user?.uid === ROOT_USER_UID;
+        const isRoot = user?.uid === ROOT_USER_UID;
 
-    const attemptApiCall = async (model) => {
+        const attemptApiCall = async (model) => {
+            try {
+                let config = payload.generationConfig;
+                if (model.includes('gemma')) {
+                    config = { ...config };
+                    delete config.responseMimeType;
+                    delete config.responseSchema;
+                }
+
+                const response = await genAI.models.generateContent({
+                    model: model,
+                    contents: payload.contents,
+                    config: config,
+                });
+                let jsonText = response.text;
+
+                if (jsonText && typeof jsonText === 'string') {
+                    jsonText = jsonText.replace(/```json\n?|```/g, '').trim();
+                }
+
+                if (!jsonText) {
+                    throw new Error("A resposta da IA está vazia ou em formato inválido.");
+                }
+                return JSON.parse(jsonText);
+            } catch (error) {
+                console.error(`Falha na chamada da API Gemini com o modelo ${model}:`, error);
+                throw error;
+            }
+        };
+
+        if (isRoot) {
+            try {
+                console.log(`Usuário root detectado. Tentando usar o modelo selecionado: ${selectedModel}.`);
+                return await attemptApiCall(selectedModel);
+            } catch (error) {
+                console.warn(`Falha ao usar o modelo ${selectedModel}. Retornando para o modelo padrão.`, error);
+            }
+        }
+
         try {
-            // Adaptação para modelos que não suportam JSON mode (ex: Gemma)
-            let config = payload.generationConfig;
-            if (model.includes('gemma')) {
-                config = { ...config };
-                delete config.responseMimeType;
-                delete config.responseSchema;
-            }
-
-            const response = await genAI.models.generateContent({
-                model: model,
-                contents: payload.contents,
-                config: config,
-            });
-            let jsonText = response.text;
-
-            // Limpeza de blocos de código Markdown caso o modelo retorne ```json ... ```
-            if (jsonText && typeof jsonText === 'string') {
-                jsonText = jsonText.replace(/```json\n?|```/g, '').trim();
-            }
-
-            if (!jsonText) {
-                throw new Error("A resposta da IA está vazia ou em formato inválido.");
-            }
-            return JSON.parse(jsonText);
+            return await attemptApiCall('gemini-3-flash-preview');
         } catch (error) {
-            console.error(`Falha na chamada da API Gemini com o modelo ${model}:`, error);
-            throw error;
+            setApiError(`Não foi possível gerar o conteúdo. Detalhe: ${error.message}`);
+            setAppState('home');
+            return null;
         }
     };
-
-    if (isRoot) {
-        try {
-            console.log(`Usuário root detectado. Tentando usar o modelo selecionado: ${selectedModel}.`);
-            return await attemptApiCall(selectedModel);
-        } catch (error) {
-            console.warn(`Falha ao usar o modelo ${selectedModel}. Retornando para o modelo padrão 'gemini-3-flash-preview'.`, error);
-            // setApiError(`Modelo ${selectedModel} falhou. Usando o padrão. Detalhe: ${error.message}`);
-        }
-    }
-
-    try {
-        return await attemptApiCall('gemini-3-flash-preview');
-    } catch (error) {
-        setApiError(`Não foi possível gerar o conteúdo. Detalhe: ${error.message}`);
-        setAppState('home');
-        return null;
-    }
-};
 
     const updateTrailCache = async (trailId, cacheKey, content) => {
         if (ENABLE_FIREBASE_AUTH && user) {
@@ -463,11 +354,7 @@ export default function App() {
                 return;
             }
             const updatedLimits = { dailyRefreshes: userData.dailyRefreshes + 1 };
-             if (ENABLE_FIREBASE_AUTH) {
-                updateUserData(updatedLimits);
-            } else {
-                setUserData(prev => ({...prev, ...updatedLimits}));
-            }
+            updateUserData(updatedLimits);
         }
         
         setAppState('loading');
@@ -533,9 +420,7 @@ export default function App() {
 
     const handleFinishStudyAndStartQuiz = () => {
         if (userData.hearts <= 0) {
-            const updatedData = { hearts: MAX_HEARTS };
-            if (ENABLE_FIREBASE_AUTH) updateUserData(updatedData);
-            else setUserData(prev => ({...prev, ...updatedData}));
+            updateUserData({ hearts: MAX_HEARTS });
         }
         generateContent(currentTrail, 'quiz');
     };
@@ -582,12 +467,10 @@ export default function App() {
         if (correct) {
             const newXp = userData.xp + XP_PER_CORRECT_ANSWER;
             setLastQuizXp(prev => prev + XP_PER_CORRECT_ANSWER);
-            if(ENABLE_FIREBASE_AUTH) updateUserData({ xp: newXp });
-            else setUserData(prev => ({...prev, xp: newXp}));
+            updateUserData({ xp: newXp });
         } else {
             const newHearts = userData.hearts - 1;
-            if(ENABLE_FIREBASE_AUTH) updateUserData({ hearts: newHearts });
-            else setUserData(prev => ({...prev, hearts: newHearts}));
+            updateUserData({ hearts: newHearts });
             if (newHearts <= 0) {
                 setQuizFailed(true);
             }
@@ -619,224 +502,108 @@ export default function App() {
         }
 
         switch (appState) {
-            case 'loading': return <LoadingScreen text="Gerando conteúdo..." />;
+            case 'loading': 
+                return <LoadingScreen text="Gerando conteúdo..." />;
             case 'login':
-                return (
-                    <div className="w-full max-w-sm text-center">
-                        <StudyBot status="idle" />
-                        <h1 className="text-4xl font-extrabold text-slate-800 dark:text-white mb-2">Bem-vindo ao StudyBot!</h1>
-                        <p className="text-slate-500 dark:text-slate-300 mb-8">Faça login para salvar seu progresso e começar a estudar.</p>
-                        <button onClick={signInWithGoogle} className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-2xl shadow-lg flex items-center justify-center gap-3 transition-transform hover:scale-105">
-                            <svg className="w-6 h-6" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C42.022,35.244,44,30.036,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
-                            Entrar com Google
-                        </button>
-                        {apiError && <p className="text-red-500 text-sm mt-4 bg-red-100 dark:bg-red-900/30 p-3 rounded-lg">{apiError}</p>}
-                    </div>
-                );
+                return <Login signInWithGoogle={signInWithGoogle} apiError={apiError} />;
             case 'home':
-                const creationLimitReached = userData.dailyTrailCreations >= MAX_DAILY_TRAIL_CREATIONS && user?.uid !== ROOT_USER_UID;
                 return (
-                    <div className="w-full max-w-2xl text-center">
-                        <div className="flex justify-between items-center mb-4">
-                            <div className="flex items-center gap-2"><img src={user?.photoURL} alt={user?.displayName} className="w-10 h-10 rounded-full" /><span className="font-bold">{user?.displayName}</span></div>
-                            <div className="flex items-center gap-4">
-                                <span className="text-xl font-bold text-red-500 flex items-center gap-1">❤️ {userData.hearts}</span>
-                                {ENABLE_FIREBASE_AUTH && <button onClick={handleClearCache} className="text-sm font-bold text-slate-500 hover:text-indigo-600">Limpar Cache</button>}
-                                {ENABLE_FIREBASE_AUTH && <button onClick={signOutUser} className="text-sm font-bold text-slate-500 hover:text-indigo-600">Sair</button>}
-                            </div>
-                        </div>
-                        <StudyBot status="idle" />
-                        <h1 className="text-4xl font-extrabold text-slate-800 dark:text-white mb-2">StudyBot</h1>
-                        <p className="text-slate-500 dark:text-slate-300 mb-6">Sua pontuação total: <span className="font-bold text-indigo-500">{userData.xp} XP</span></p>
-                        {apiError && <p className="text-red-500 text-sm mb-4 bg-red-100 dark:bg-red-900/30 p-3 rounded-lg">{apiError}</p>}
-                        {(
-                            <div className="my-4">
-                                <label htmlFor="model-select" className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">
-                                    Select Gemini Model
-                                </label>
-                                <select
-                                    id="model-select"
-                                    value={selectedModel}
-                                    onChange={(e) => setSelectedModel(e.target.value)}
-                                    className="w-full max-w-xs mx-auto bg-white dark:bg-gray-800 border border-slate-300 dark:border-gray-600 rounded-md shadow-sm p-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                >
-                                    {geminiModels.map(model => (
-                                        <option key={model.id} value={model.id}>{model.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-                        
-                        <div className="space-y-6">
-                            {(!HIDE_EXISTING_TRAILS || user?.uid === ROOT_USER_UID) &&
-                                <>
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-left mb-3">Trilhas Guiadas</h2>
-                                        {studyLevels.map(level => (
-                                            <CardButton key={level.id} title={level.title} description={`${level.xpRequired} XP necessários`} disabled={userData.xp < level.xpRequired} onClick={() => handleSelectTrail(level)} icon={userData.xp < level.xpRequired ? '🔒' : level.icon} />
-                                        ))}
-                                    </div>
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-left mb-3">Minhas Trilhas</h2>
-                                        {customTrails.length > 0 ? customTrails.map(trail => (
-                                            <CardButton key={trail.id} title={trail.title} description="Sua trilha personalizada" onClick={() => handleSelectTrail(trail)} icon={'📌'} onDelete={() => handleDeleteTrail(trail.id)} />
-                                        )) : <p className="text-slate-500">Você ainda não criou nenhuma trilha.</p>}
-                                    </div>
-                                </>
-                            }
-                            <div>
-                                <button onClick={() => setAppState('create_trail')} disabled={creationLimitReached} className="mt-4 w-full bg-indigo-100 text-indigo-700 font-bold py-3 rounded-2xl hover:bg-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    + Criar Nova Trilha de Estudo
-                                </button>
-                                {creationLimitReached && <p className="text-sm text-amber-600 mt-2">Você atingiu seu limite de criação de trilhas por hoje.</p>}
-                            </div>
-                        </div>
-                    </div>
+                    <Home
+                        user={user}
+                        userData={userData}
+                        customTrails={customTrails}
+                        selectedModel={selectedModel}
+                        setSelectedModel={setSelectedModel}
+                        geminiModels={geminiModels}
+                        studyLevels={studyLevels}
+                        handleSelectTrail={handleSelectTrail}
+                        handleDeleteTrail={handleDeleteTrail}
+                        handleClearCache={handleClearCache}
+                        signOutUser={signOutUser}
+                        setAppState={setAppState}
+                        apiError={apiError}
+                        ENABLE_FIREBASE_AUTH={ENABLE_FIREBASE_AUTH}
+                        HIDE_EXISTING_TRAILS={HIDE_EXISTING_TRAILS}
+                        ROOT_USER_UID={ROOT_USER_UID}
+                        MAX_DAILY_TRAIL_CREATIONS={MAX_DAILY_TRAIL_CREATIONS}
+                    />
                 );
             case 'create_trail':
                  return (
-                    <div className="w-full max-w-2xl">
-                        <button onClick={handleReturnHome} className="text-indigo-500 font-bold mb-4">← Voltar</button>
-                        <h1 className="text-3xl font-bold text-center mb-6">Criar Nova Trilha</h1>
-                        {apiError && <p className="text-red-500 text-sm mb-4 bg-red-100 dark:bg-red-900/30 p-3 rounded-lg">{apiError}</p>}
-                        <input type="text" value={newTrailTitle} onChange={(e) => setNewTrailTitle(e.target.value)} placeholder="Título da Trilha (ex: Aula 5)" className="w-full p-3 mb-4 border-2 rounded-xl" />
-                        <textarea value={newTrailContent} onChange={(e) => setNewTrailContent(e.target.value)} placeholder="Cole aqui o conteúdo da sua aula..." className="w-full h-60 p-4 border-2 rounded-xl mb-4" />
-                        <button onClick={handleCreateTrail} className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg">Salvar Trilha</button>
-                    </div>
+                    <CreateTrail
+                        handleReturnHome={handleReturnHome}
+                        apiError={apiError}
+                        newTrailTitle={newTrailTitle}
+                        setNewTrailTitle={setNewTrailTitle}
+                        newTrailContent={newTrailContent}
+                        setNewTrailContent={setNewTrailContent}
+                        handleCreateTrail={handleCreateTrail}
+                    />
                 );
             case 'trail_options':
                 return (
-                    <div className="w-full max-w-lg text-center">
-                         <button onClick={handleReturnHome} className="text-indigo-500 font-bold absolute top-6 left-6">← Voltar</button>
-                        <StudyBot status="idle" />
-                        <h1 className="text-3xl font-bold mb-2">{currentTrail.title}</h1>
-                        <p className="text-slate-500 mb-6">O que você gostaria de fazer?</p>
-                        <div className="space-y-4">
-                            <CardButton title="Estudar Material" description="Revise o conteúdo antes do quiz." onClick={() => generateContent(currentTrail, 'study')} icon={<span>📖</span>} />
-                            <CardButton title="Flashcards (Anki)" description="Memorize os pontos-chave." onClick={() => generateContent(currentTrail, 'anki')} icon={<span>🗂️</span>} />
-                            <CardButton title="Ir Direto para o Quiz" description={`${userData.hearts} corações restantes.`} onClick={() => generateContent(currentTrail, 'quiz')} disabled={userData.hearts <= 0} icon={<span>🧠</span>} />
-                        </div>
-                        {userData.hearts <= 0 && <p className="text-red-500 mt-4">Você está sem corações! Estude o material para recarregá-los.</p>}
-                    </div>
+                    <TrailOptions
+                        currentTrail={currentTrail}
+                        userData={userData}
+                        generateContent={generateContent}
+                        handleReturnHome={handleReturnHome}
+                    />
                 );
             case 'studying_material':
-                const refreshLimitReached = userData.dailyRefreshes >= MAX_DAILY_REFRESHES && user?.uid !== ROOT_USER_UID;
-                // Garante que quebras de linha escapadas sejam tratadas e configura o marked
-                const formattedContent = marked.parse(studyContent.replace(/\\n/g, '\n'), { breaks: true, gfm: true });
                 return (
-                     <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 flex flex-col h-[85vh]">
-                        <div className="flex justify-between items-center mb-6 flex-shrink-0">
-                            <h1 className="text-3xl font-bold text-slate-800 dark:text-white">{currentTrail.title}</h1>
-                            <button onClick={() => generateContent(currentTrail, 'study', true)} disabled={refreshLimitReached} title={refreshLimitReached ? 'Limite de atualizações diárias atingido' : 'Gerar novo material de estudo'} className="text-slate-400 hover:text-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors p-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                            </button>
-                        </div>
-                        <div className="markdown-content flex-grow overflow-y-auto pr-4 custom-scrollbar" dangerouslySetInnerHTML={{ __html: formattedContent }}>
-                        </div>
-                        <div className="mt-6 flex justify-between items-center flex-shrink-0 pt-4 border-t border-slate-100 dark:border-gray-700">
-                            <button onClick={() => setAppState('trail_options')} className="text-indigo-500 font-bold hover:text-indigo-700 transition-colors">← Voltar</button>
-                            <button onClick={handleFinishStudyAndStartQuiz} className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg transition-transform hover:scale-105">
-                                {userData.hearts <= 0 ? "Concluir Estudo e Restaurar Corações!" : "Concluir Estudo e Iniciar Quiz"}
-                            </button>
-                        </div>
-                    </div>
+                     <StudyMaterial
+                        currentTrail={currentTrail}
+                        userData={userData}
+                        user={user}
+                        studyContent={studyContent}
+                        generateContent={generateContent}
+                        setAppState={setAppState}
+                        handleFinishStudyAndStartQuiz={handleFinishStudyAndStartQuiz}
+                        ROOT_USER_UID={ROOT_USER_UID}
+                        MAX_DAILY_REFRESHES={MAX_DAILY_REFRESHES}
+                     />
                 );
             case 'studying_anki':
-                if (!ankiCards || ankiCards.length === 0) return <LoadingScreen text="Gerando flashcards..." />;
-                const currentCard = ankiCards[currentAnkiCardIndex];
                 return (
-                    <div className="w-full max-w-2xl flex flex-col items-center">
-                        <button onClick={() => setAppState('trail_options')} className="text-indigo-500 font-bold self-start mb-4">← Voltar</button>
-                        <h2 className="text-2xl font-bold mb-2">{currentTrail.title}</h2>
-                        <p className="text-slate-500 mb-6 font-bold">Flashcard {currentAnkiCardIndex + 1} de {ankiCards.length}</p>
-                        
-                        <div className="w-full h-80 perspective-1000">
-                            <div className={`relative w-full h-full transition-transform duration-700 transform-style-3d ${isCardFlipped ? 'rotate-y-180' : ''}`}>
-                                <div className="absolute w-full h-full backface-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-xl flex items-center justify-center p-6 text-center">
-                                    <p className="text-2xl font-semibold">{currentCard.front}</p>
-                                </div>
-                                <div className="absolute w-full h-full backface-hidden bg-indigo-100 dark:bg-indigo-900/80 rounded-2xl shadow-xl flex items-center justify-center p-6 text-center transform rotate-y-180">
-                                    <p className="text-xl">{currentCard.back}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button onClick={() => setIsCardFlipped(!isCardFlipped)} className="mt-6 w-full max-w-sm bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg">
-                            {isCardFlipped ? 'Ver Pergunta' : 'Virar Cartão'}
-                        </button>
-
-                        <div className="flex justify-between w-full max-w-sm mt-4">
-                            <button onClick={() => { setCurrentAnkiCardIndex(i => i - 1); setIsCardFlipped(false); }} disabled={currentAnkiCardIndex === 0} className="font-bold text-slate-500 disabled:opacity-50">Anterior</button>
-                            <button onClick={() => { setCurrentAnkiCardIndex(i => i + 1); setIsCardFlipped(false); }} disabled={currentAnkiCardIndex === ankiCards.length - 1} className="font-bold text-slate-500 disabled:opacity-50">Próximo</button>
-                        </div>
-
-                        <button onClick={handleFinishStudyAndStartQuiz} className="mt-8 bg-green-500 text-white font-bold py-3 px-6 rounded-2xl shadow-lg">
-                            Iniciar Quiz
-                        </button>
-                    </div>
+                    <StudyAnki
+                        ankiCards={ankiCards}
+                        currentAnkiCardIndex={currentAnkiCardIndex}
+                        setCurrentAnkiCardIndex={setCurrentAnkiCardIndex}
+                        isCardFlipped={isCardFlipped}
+                        setIsCardFlipped={setIsCardFlipped}
+                        currentTrail={currentTrail}
+                        setAppState={setAppState}
+                        handleFinishStudyAndStartQuiz={handleFinishStudyAndStartQuiz}
+                    />
                 );
             case 'quiz':
-                if (!quizQuestions || quizQuestions.length === 0) return <LoadingScreen text="Gerando quiz..." />;
-                const currentQuestion = quizQuestions[currentQuestionIndex];
-                const progressPercentage = ((currentQuestionIndex + 1) / quizQuestions.length) * 100;
                 return (
-                    <div className="container mx-auto max-w-2xl p-4 flex flex-col justify-between min-h-screen">
-                        <header className="pt-4 flex items-center gap-4">
-                            <button onClick={handleReturnHome} className="text-2xl text-slate-500 hover:text-slate-800">✕</button>
-                            <div className="flex-grow bg-slate-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden"><div className="bg-green-500 h-4 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }}></div></div>
-                            <div className="text-xl font-bold text-red-500 flex items-center gap-1">❤️ {userData.hearts}</div>
-                        </header>
-                        <main className="flex-grow flex flex-col items-center justify-center animate-fade-in" key={currentQuestionIndex}>
-                            <StudyBot status={botStatus} />
-                            <h2 className="text-2xl font-bold text-center mb-8">{currentQuestion.question}</h2>
-                            <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-3">{currentQuestion.options.map((option, index) => {
-                                const isSelected = selectedAnswer === option;
-                                let buttonClass = "border-slate-200 dark:border-gray-600 hover:bg-slate-100 dark:hover:bg-gray-700";
-                                if (isAnswered) {
-                                    if (option === currentQuestion.correctAnswer) buttonClass = "bg-green-100 border-green-300 text-green-800 dark:bg-green-900/50 dark:border-green-600 dark:text-white";
-                                    else if (isSelected) buttonClass = "bg-red-100 border-red-300 text-red-800 dark:bg-red-900/50 dark:border-red-600 dark:text-white";
-                                    else buttonClass = "opacity-50";
-                                } else if (isSelected) {
-                                    buttonClass = "bg-indigo-100 border-indigo-300 dark:bg-indigo-900/50 dark:border-indigo-600";
-                                }
-                                return (<button key={index} onClick={() => handleSelectAnswer(option)} disabled={isAnswered} className={`p-4 border-2 rounded-2xl text-left font-bold transition-all duration-200 ${buttonClass}`}>{option}</button>);
-                            })}</div>
-                        </main>
-                        <footer className="h-44">
-                            {!isAnswered ? (
-                                <div className="flex items-end h-full pb-4">
-                                    <button onClick={handleCheckAnswer} disabled={!selectedAnswer} className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-transform hover:scale-105 disabled:bg-slate-400">Verificar</button>
-                                </div>
-                            ) : (
-                                <div className={`relative p-6 rounded-t-3xl animate-slide-in-bottom ${isCorrect ? 'bg-green-100 dark:bg-green-900/70' : 'bg-red-100 dark:bg-red-900/70'}`}>
-                                    {isCorrect && <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-green-500 font-extrabold text-xl animate-xp-gain">+{XP_PER_CORRECT_ANSWER} XP</div>}
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <h3 className={`font-bold text-xl ${isCorrect ? 'text-green-600 dark:text-green-300' : 'text-red-600 dark:text-red-300'}`}>{isCorrect ? 'Resposta Correta!' : 'Resposta Incorreta'}</h3>
-                                            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{quizQuestions[currentQuestionIndex].explanation}</p>
-                                        </div>
-                                        <button onClick={handleNextQuestion} className={`font-bold py-3 px-8 rounded-2xl shadow-md transition-transform transform hover:scale-105 ${isCorrect ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>Próximo</button>
-                                    </div>
-                                </div>
-                            )}
-                        </footer>
-                    </div>
+                    <Quiz
+                        quizQuestions={quizQuestions}
+                        currentQuestionIndex={currentQuestionIndex}
+                        userData={userData}
+                        botStatus={botStatus}
+                        selectedAnswer={selectedAnswer}
+                        isAnswered={isAnswered}
+                        isCorrect={isCorrect}
+                        handleSelectAnswer={handleSelectAnswer}
+                        handleCheckAnswer={handleCheckAnswer}
+                        handleNextQuestion={handleNextQuestion}
+                        handleReturnHome={handleReturnHome}
+                        XP_PER_CORRECT_ANSWER={XP_PER_CORRECT_ANSWER}
+                    />
                 );
             case 'completed':
                 return (
-                    <div className="w-full max-w-md text-center">
-                        <StudyBot status={quizFailed ? 'incorrect' : 'correct'} />
-                        <h2 className={`text-3xl font-bold mb-2 ${quizFailed ? 'text-red-500' : 'text-green-500'}`}>
-                            {quizFailed ? 'Oh não!' : 'Desafio Concluído!'}
-                        </h2>
-                        <p className="text-xl text-slate-600 dark:text-slate-300 mb-4">
-                            {quizFailed ? `Você ficou sem corações. Estude mais um pouco e tente novamente!` : `Você dominou o módulo sobre ${currentTrail.title}!`}
-                        </p>
-                        {!quizFailed && <div className="bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl p-4 mb-6"><p className="text-lg font-bold text-indigo-800 dark:text-indigo-200">XP Ganho: +{lastQuizXp}</p></div>}
-                        <button onClick={handleReturnHome} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-2xl shadow-lg transition-transform hover:scale-105">Voltar ao Início</button>
-                    </div>
+                    <Completed
+                        quizFailed={quizFailed}
+                        currentTrail={currentTrail}
+                        lastQuizXp={lastQuizXp}
+                        handleReturnHome={handleReturnHome}
+                    />
                 );
-            default: return <LoadingScreen text="Carregando..." />;
+            default: 
+                return <LoadingScreen text="Carregando..." />;
         }
     };
 

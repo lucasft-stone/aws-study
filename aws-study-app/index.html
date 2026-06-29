@@ -9,7 +9,19 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
+    <script>
+      (function () {
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const hasDebugParam = new URLSearchParams(window.location.search).has('debug');
+        if (isLocalhost || hasDebugParam) {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/eruda';
+          script.onload = function () {
+            eruda.init();
+          };
+          document.body.appendChild(script);
+        }
+      })();
+    </script>
   </body>
 </html>
