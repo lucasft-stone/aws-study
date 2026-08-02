@@ -617,31 +617,23 @@ export default function StudyMaterial({
                 </div>
             )}
 
-            {/* Cabeçalho de Leitura Responsivo */}
-            <div className="flex flex-col gap-2 sm:gap-3 mb-3 pb-3 border-b border-slate-100 dark:border-gray-700 flex-shrink-0">
-                <div className="flex justify-between items-start gap-2">
-                    <div>
-                        <span className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900/50">
-                            📖 Material de Estudo
-                        </span>
-                        <h1 className="text-lg sm:text-3xl font-extrabold text-slate-800 dark:text-white mt-1 leading-tight">
-                            {currentTrail?.title}
-                        </h1>
-                    </div>
-
-                    {/* Badge de Tempo de Leitura (Desktop) */}
-                    <span className="hidden sm:flex text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-gray-700/60 px-3 py-1.5 rounded-xl items-center gap-1 flex-shrink-0">
+            {/* Cabeçalho de Leitura Responsivo com Barra Deslizante Horizontal */}
+            <div className="flex flex-col gap-2 mb-3 pb-3 border-b border-slate-100 dark:border-gray-700/80 flex-shrink-0">
+                <div className="flex justify-between items-center gap-2">
+                    <span className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900/50">
+                        📖 Material de Estudo
+                    </span>
+                    <span className="text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-gray-700/60 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                         ⏱️ ~{readingTimeMinutes} min de leitura
                     </span>
                 </div>
 
-                {/* Barra de Ações Rápidas (Scrollable no Mobile, Flex no Desktop) */}
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 w-full flex-shrink-0">
-                    {/* Badge de Tempo de Leitura (Mobile) */}
-                    <span className="sm:hidden text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-gray-700/60 px-2.5 py-1 rounded-xl flex items-center gap-1 whitespace-nowrap flex-shrink-0">
-                        ⏱️ ~{readingTimeMinutes} min
-                    </span>
+                <h1 className="text-lg sm:text-2xl font-extrabold text-slate-800 dark:text-white text-left leading-tight">
+                    {currentTrail?.title}
+                </h1>
 
+                {/* Barra de Ações 100% Rolante na Horizontal (Single Line Horizontal Scrollable Bar) */}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 w-full flex-nowrap flex-shrink-0 mt-1">
                     {/* Controles de Zoom de Fonte */}
                     <div className="flex items-center bg-slate-100 dark:bg-gray-700/60 p-0.5 rounded-xl gap-0.5 flex-shrink-0">
                         <button
@@ -707,12 +699,13 @@ export default function StudyMaterial({
                         onClick={() => generateContent(currentTrail, 'study', true)}
                         disabled={refreshLimitReached}
                         title={refreshLimitReached ? 'Limite de atualizações diárias atingido' : 'Regerar este material de estudo com IA'}
-                        className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 p-1.5 rounded-xl transition-colors disabled:opacity-40 border border-indigo-100 dark:border-indigo-900/50 flex-shrink-0"
+                        className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 py-1.5 px-3 rounded-xl transition-colors disabled:opacity-40 border border-indigo-100 dark:border-indigo-900/50 flex items-center gap-1 text-[11px] sm:text-xs font-extrabold whitespace-nowrap flex-shrink-0"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="23 4 23 10 17 10"></polyline>
                             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
                         </svg>
+                        <span>🔄 Regerar</span>
                     </button>
                 </div>
             </div>
