@@ -15,6 +15,7 @@ export default function Home({
     handleSelectTrail,
     handleEditTrail,
     handleDeleteTrail,
+    handleDeleteTopic,
     handleClearCache,
     signOutUser,
     setAppState,
@@ -198,8 +199,23 @@ export default function Home({
                                         </p>
                                     </div>
                                 </div>
-                                <div className="text-slate-300 group-hover:text-indigo-600 font-bold text-xl transition-colors">
-                                    ➔
+
+                                <div className="flex items-center gap-2">
+                                    {topic.badge === 'Personalizado' && handleDeleteTopic && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteTopic(topic);
+                                            }}
+                                            title="Excluir este tópico completo e todos os seus subtópicos"
+                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition-all border border-transparent hover:border-rose-200 dark:hover:border-rose-900"
+                                        >
+                                            🗑️
+                                        </button>
+                                    )}
+                                    <div className="text-slate-300 group-hover:text-indigo-600 font-bold text-xl transition-colors">
+                                        ➔
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -227,7 +243,7 @@ export default function Home({
                             ← Voltar para Todos os Tópicos
                         </button>
 
-                        <div className="p-4 mb-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 rounded-2xl flex items-center justify-between">
+                        <div className="p-4 mb-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
                                 <span className="text-3xl">{activeTopic?.icon}</span>
                                 <div>
@@ -239,6 +255,19 @@ export default function Home({
                                     </p>
                                 </div>
                             </div>
+
+                            {activeTopic?.badge === 'Personalizado' && handleDeleteTopic && (
+                                <button
+                                    onClick={() => {
+                                        handleDeleteTopic(activeTopic);
+                                        setSelectedTopicId(null);
+                                    }}
+                                    title="Excluir este tópico completo e todos os seus subtópicos"
+                                    className="bg-rose-500 hover:bg-rose-600 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl transition-all shadow flex items-center gap-1.5 self-end sm:self-center"
+                                >
+                                    🗑️ Excluir Tópico Completo
+                                </button>
+                            )}
                         </div>
 
                         <div className="space-y-3">

@@ -53,9 +53,17 @@ export default function App() {
         addTrail,
         editTrail,
         removeTrail,
+        removeTopic,
         clearCache,
         MAX_HEARTS
     } = useAuthAndData();
+
+    const handleDeleteTopic = async (topic) => {
+        if (!topic || !topic.items) return;
+        if (window.confirm(`Tem certeza que deseja excluir o tópico "${topic.title}" e todos os seus ${topic.items.length} subtópicos de estudo?`)) {
+            await removeTopic(topic.title, topic.items);
+        }
+    };
 
     const isRoot = checkIsAdmin(user);
 
@@ -238,6 +246,7 @@ export default function App() {
                         handleSelectTrail={selectTrail}
                         handleEditTrail={handleOpenEditTrail}
                         handleDeleteTrail={handleDeleteTrailClick}
+                        handleDeleteTopic={handleDeleteTopic}
                         handleClearCache={handleClearCacheClick}
                         signOutUser={signOut}
                         setAppState={setAppState}

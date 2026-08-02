@@ -124,6 +124,14 @@ export function useAuthAndData() {
         setCustomTrails(prev => prev.filter(t => t.id !== trailId));
     };
 
+    const removeTopic = async (topicTitle, trailsInTopic) => {
+        if (!trailsInTopic || trailsInTopic.length === 0) return;
+        const deletePromises = trailsInTopic.map(t => deleteCustomTrail(user?.uid, t.id));
+        await Promise.all(deletePromises);
+        const trailIdsToRemove = new Set(trailsInTopic.map(t => t.id));
+        setCustomTrails(prev => prev.filter(t => !trailIdsToRemove.has(t.id)));
+    };
+
     const clearCache = async () => {
         if (user?.uid) {
             await clearStudyCache(user.uid);
@@ -144,6 +152,7 @@ export function useAuthAndData() {
         addTrail,
         editTrail,
         removeTrail,
+        removeTopic,
         clearCache,
         MAX_HEARTS
     };
