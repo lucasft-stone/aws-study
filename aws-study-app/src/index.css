@@ -249,3 +249,34 @@
     border-radius: 0.75rem;
   }
 }
+
+/* Estilização Minimalista e Proporcional para Diagramas Mermaid */
+.mermaid-diagram-placeholder {
+  max-width: 100%;
+}
+
+.mermaid-svg-display svg {
+  max-height: 480px !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0 auto;
+}
+
+/* Ajusta o tamanho da fonte interna e nós do Mermaid para não ficarem gigantes */
+.mermaid-svg-display svg .node text,
+.mermaid-svg-display svg .label text,
+.mermaid-svg-display svg text {
+  font-family: system-ui, -apple-system, sans-serif !important;
+  font-size: 13px !important;
+}
+
+@media (max-width: 640px) {
+  .mermaid-svg-display svg {
+    max-height: 360px !important;
+  }
+  .mermaid-svg-display svg .node text,
+  .mermaid-svg-display svg .label text,
+  .mermaid-svg-display svg text {
+    font-size: 11px !important;
+  }
+}

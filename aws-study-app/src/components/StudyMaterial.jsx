@@ -878,41 +878,39 @@ export default function StudyMaterial({
                 </div>
             )}
 
-            {/* Modal Fullscreen de Modo Foco Zen (Leitura Totalmente Expandida) */}
+            {/* Modal Fullscreen de Modo Foco Zen Minimalista */}
             {isFocusMode && (
-                <div className="fixed inset-0 z-50 bg-white dark:bg-slate-950 p-4 sm:p-10 flex flex-col h-full w-full animate-fade-in">
-                    {/* Cabeçalho do Modo Foco */}
-                    <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200 dark:border-slate-800 flex-shrink-0">
+                <div className="fixed inset-0 z-50 bg-slate-950 text-slate-100 p-4 sm:p-8 flex flex-col h-full w-full animate-fade-in">
+                    {/* Cabeçalho Minimalista Discreto */}
+                    <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800/80 flex-shrink-0 max-w-4xl mx-auto w-full">
                         <div className="flex items-center gap-2">
-                            <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-900/60">
-                                🔍 Modo Foco Total
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">
+                                Modo Leitura Minimalista
                             </span>
-                            <h2 className="text-base sm:text-2xl font-extrabold text-slate-800 dark:text-white line-clamp-1">
-                                {currentTrail?.title}
-                            </h2>
                         </div>
 
                         <div className="flex items-center gap-3">
-                            {/* Zoom da Fonte no Modo Foco */}
-                            <div className="flex items-center bg-slate-100 dark:bg-gray-800 p-1 rounded-xl gap-1">
-                                <button onClick={() => setFontSizeLevel(prev => Math.max(0, prev - 1))} disabled={fontSizeLevel === 0} className="w-7 h-7 font-bold text-xs rounded-lg hover:bg-white dark:hover:bg-gray-700 text-slate-700 dark:text-slate-200">A-</button>
-                                <span className="text-[11px] font-bold text-slate-400 px-1">{fontSizeLevel === 0 ? 'P' : fontSizeLevel === 1 ? 'M' : fontSizeLevel === 2 ? 'G' : 'GG'}</span>
-                                <button onClick={() => setFontSizeLevel(prev => Math.min(3, prev + 1))} disabled={fontSizeLevel === 3} className="w-7 h-7 font-bold text-xs rounded-lg hover:bg-white dark:hover:bg-gray-700 text-slate-700 dark:text-slate-200">A+</button>
+                            {/* Zoom da Fonte Minimalista */}
+                            <div className="flex items-center bg-slate-900 border border-slate-800 p-0.5 rounded-lg gap-0.5">
+                                <button onClick={() => setFontSizeLevel(prev => Math.max(0, prev - 1))} disabled={fontSizeLevel === 0} className="w-6 h-6 font-bold text-xs rounded text-slate-400 hover:text-white">A-</button>
+                                <span className="text-[10px] font-bold text-slate-500 px-1">{fontSizeLevel === 0 ? 'P' : fontSizeLevel === 1 ? 'M' : fontSizeLevel === 2 ? 'G' : 'GG'}</span>
+                                <button onClick={() => setFontSizeLevel(prev => Math.min(3, prev + 1))} disabled={fontSizeLevel === 3} className="w-6 h-6 font-bold text-xs rounded text-slate-400 hover:text-white">A+</button>
                             </div>
 
                             <button
                                 onClick={() => setIsFocusMode(false)}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs transition-all shadow flex items-center gap-1.5"
+                                className="text-xs font-bold text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-800 transition-colors"
                             >
-                                ❌ Sair do Modo Foco
+                                ✕ Sair (Esc)
                             </button>
                         </div>
                     </div>
 
-                    {/* Canvas de Leitura 100% Expandido sem distrações */}
+                    {/* Leitura Focada Totalmente Limpa e Centrada */}
                     <div
                         ref={contentRef}
-                        className={`markdown-content flex-grow overflow-y-auto pr-3 sm:pr-8 custom-scrollbar max-w-5xl mx-auto w-full ${fontClasses[fontSizeLevel]}`}
+                        className={`markdown-content flex-grow overflow-y-auto pr-2 sm:pr-6 custom-scrollbar max-w-3xl mx-auto w-full ${fontClasses[fontSizeLevel]} leading-relaxed`}
                         dangerouslySetInnerHTML={{ __html: formattedContent }}
                     />
                 </div>
