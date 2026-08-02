@@ -2,7 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { marked } from 'marked';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+import mermaid from 'mermaid';
 import { checkIsAdmin } from '../services/firebaseService';
+
+// Inicialização limpa do Mermaid para gráficos e diagramas
+mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    securityLevel: 'loose',
+    fontFamily: 'system-ui, sans-serif'
+});
 
 export default function StudyMaterial({
     currentTrail,
@@ -108,14 +117,13 @@ export default function StudyMaterial({
             }
         };
 
-        // 1. Re-formata blocos com cercas ``` preservando TODAS as linguagens de programação (python, bash, javascript, typescript, sql, dockerfile, yaml, terraform, java, csharp, go, rust, php, ruby, etc.)
+        // 1. Re-formata blocos com cercas ``` preservando TODAS as linguagens de programação e Mermaid
         text = text.replace(/```([a-zA-Z0-9_-]*)\s*([\s\S]*?)```/gi, (fullMatch, lang, block) => {
             const trimmedLang = lang.trim().toLowerCase();
             const trimmedBlock = block.trim();
 
-            // Se possuir qualquer linguagem especificada (diferente de json), PRESERVA INTEIRO
             if (trimmedLang && trimmedLang !== 'json') {
-                return fullMatch; 
+                return fullMatch; // Preserva Python, Bash, JS, SQL, Mermaid intactos
             }
 
             if (trimmedBlock.startsWith('{') || trimmedBlock.startsWith('[')) {
@@ -149,7 +157,6 @@ export default function StudyMaterial({
 
             if ((text[i] === '{' || text[i] === '[') && (i === 0 || text[i - 1] === '\n' || text[i - 1] === ' ' || text[i - 1] === ':')) {
                 const precedingSnippet = text.substring(Math.max(0, i - 120), i);
-                // Verifica palavras-chave de qualquer linguagem de programação (Python, JS, TS, Java, C#, Go, Rust, SQL, Bash, Terraform)
                 const isInsideCodeStatement = /def\s+|return\s+|function|class\s+|var\s+|const\s+|let\s+|public\s+|private\s+|void\s+|func\s+|import\s+|export\s+|package\s+|resource\s+|provider\s+|select\s+|insert\s+|update\s+|docker\s+|kubectl\s+|sudo\s+/i.test(precedingSnippet);
 
                 if (!isInsideCodeStatement) {
@@ -195,21 +202,44 @@ export default function StudyMaterial({
     const processedMath = renderLatexMathFormulas(processedJson);
     const formattedContent = marked.parse(processedMath, { breaks: true, gfm: true });
 
-    // Efeito para adicionar barras de título de linguagem e botões de copiar em todos os blocos de código
+    // Efeito para adicionar barras de título de linguagem, copiar código e renderizar gráficos Mermaid
     useEffect(() => {
         if (!contentRef.current) return;
+
+        // 1. Processa gráficos Mermaid
+        const mermaidElements = contentRef.current.querySelectorAll('.language-mermaid, code.language-mermaid');
+        mermaidElements.forEach(async (codeEl, idx) => {
+            const pre = codeEl.closest('pre') || codeEl;
+            if (pre.dataset.mermaidRendered) return;
+            pre.dataset.mermaidRendered = 'true';
+
+            const codeText = codeEl.innerText.trim();
+            if (!codeText) return;
+
+            try {
+                const id = `mermaid-chart-${Date.now()}-${idx}`;
+                const { svg } = await mermaid.render(id, codeText);
+                
+                const chartWrapper = document.createElement('div');
+                chartWrapper.className = 'mermaid-chart-wrapper my-6 p-4 sm:p-6 bg-slate-900/90 rounded-2xl border border-slate-700/80 shadow-xl text-center overflow-x-auto flex justify-center items-center';
+                chartWrapper.innerHTML = svg;
+
+                pre.parentNode.replaceChild(chartWrapper, pre);
+            } catch (err) {
+                console.warn('Erro ao renderizar gráfico Mermaid:', err);
+            }
+        });
+
+        // 2. Processa blocos de código regulares
         const preElements = contentRef.current.querySelectorAll('pre');
-
         preElements.forEach((pre) => {
-            if (pre.querySelector('.copy-code-btn')) return; // Evita duplicar
+            if (pre.querySelector('.copy-code-btn') || pre.dataset.mermaidRendered) return;
 
-            // Detecta linguagem a partir da tag code (ex: language-python -> PYTHON)
             const codeEl = pre.querySelector('code');
             const classList = codeEl ? Array.from(codeEl.classList) : [];
             const langMatch = classList.find(c => c.startsWith('language-'));
             const langName = langMatch ? langMatch.replace('language-', '').toUpperCase() : 'CODE';
 
-            // Cria barra de topo do bloco de código com ícones estilo macOS + Badge + Botão de Copiar
             const topBar = document.createElement('div');
             topBar.className = 'code-header-bar flex justify-between items-center bg-slate-950/80 px-4 py-2 rounded-t-2xl border-b border-slate-800 text-xs text-slate-400 select-none -mt-5 -mx-5 mb-3';
             topBar.innerHTML = `

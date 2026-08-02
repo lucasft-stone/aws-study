@@ -101,10 +101,11 @@ Diretrizes Obrigatórias:
 - Use analogias do mundo real e cenários práticos de arquitetura de nuvem.
 - Inclua dicas específicas para os exames de certificação AWS (AWS Certified Cloud Practitioner / Solutions Architect).
 - Destaque boas práticas da AWS (AWS Well-Architected Framework: Segurança, Resiliência, Eficiência de Custos).
-- REGRA CRÍTICA DE FORMATAÇÃO DE CÓDIGO, JSON E MATEMÁTICA:
+- REGRA CRÍTICA DE FORMATAÇÃO DE CÓDIGO, JSON, GRÁFICOS E MATEMÁTICA:
   - Todo e qualquer exemplo de JSON (como políticas de IAM, Buckets, Payloads ou configurações) DEVE ser formatado dentro de blocos de código Markdown (\`\`\`json ... \`\`\`).
   - O JSON DEVE ser um JSON VÁLIDO com aspas duplas em TODAS as chaves e valores string (ex: "Version": "2012-10-17", "Effect": "Allow").
   - Para trechos de código (Python, Bash, SQL, Terraform, etc.), especifique a linguagem após as três crases (ex: \`\`\`python, \`\`\`bash, \`\`\`sql) e use indentação perfeita de 4 espaços.
+  - Para GRÁFICOS, DIAGRAMAS DE ARQUITETURA, FLUXOGRAMAS OU COMPARATIVOS VISUAIS: Use obrigatoriamente a sintaxe Mermaid em blocos \`\`\`mermaid (ex: graph TD, sequenceDiagram, pie, bar, mindmap). O app possui renderizador de gráficos nativo!
   - Se houver fórmulas matemáticas ou cálculos (ex: cálculo de SLA de disponibilidade, ROI, transferência de dados, equações), use sintaxe LaTeX entre cifrões (ex: $E = mc^2$ para em linha ou $$ \\int_0^\\infty e^{-x^2} dx $$ para blocos de equação).
 
 Conteúdo base do tópico:
@@ -117,9 +118,10 @@ Crie um material de estudo didático e aprofundado estritamente sobre o conteúd
 Diretrizes Obrigatórias:
 - Foque EXCLUSIVAMENTE no assunto fornecido (${topicTitle}). NÃO mencione AWS ou nuvem AWS a menos que o conteúdo explicitamente peça.
 - Use analogias claras, exemplos práticos e explicações didáticas passo a passo.
-- REGRA CRÍTICA DE FORMATAÇÃO DE CÓDIGO, JSON E MATEMÁTICA:
+- REGRA CRÍTICA DE FORMATAÇÃO DE CÓDIGO, JSON, GRÁFICOS E MATEMÁTICA:
   - Todo e qualquer exemplo de código, comando ou JSON DEVE ser formatado dentro de blocos de código Markdown com a linguagem especificada (ex: \`\`\`json, \`\`\`python, \`\`\`bash, \`\`\`javascript).
   - O JSON DEVE ser um JSON VÁLIDO com aspas duplas obrigatoriamente em TODAS as chaves e valores string e indentação de 4 espaços.
+  - Para GRÁFICOS OU DIAGRAMAS VISUAIS: Use obrigatoriamente a sintaxe Mermaid em blocos \`\`\`mermaid (ex: graph TD, sequenceDiagram, pie, bar, mindmap). O app possui renderizador de gráficos nativo!
   - Se houver fórmulas matemáticas ou equações no assunto, formate em LaTeX entre $ ... $ para equações em linha ou $$ ... $$ para blocos de equação centralizados.
 
 Conteúdo base fornecido pelo usuário:
