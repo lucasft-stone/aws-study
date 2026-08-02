@@ -112,6 +112,11 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
 
             if (!savedState || savedState === 'home' || savedState === 'login') return;
 
+            // Se o localStorage já restaurou síncronamente o estudo e a trilha, não faz fetch redundante
+            if (savedSession?.studyContent && savedSession?.currentTrail?.id === savedTrailId) {
+                return;
+            }
+
             if (savedTrailId && user?.uid) {
                 try {
                     let loadedTrail = null;
@@ -139,12 +144,10 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
                     console.warn("Erro ao restaurar cache da URL:", err);
                 }
             }
-
-            setAppState(savedState);
         };
 
         restoreSessionFromUrl();
-    }, [user]);
+    }, [user, savedSession]);
 
     // Sincroniza a localização da página e a trilha atual na URL (ex: ?state=studying_material&trail=level-s3)
     useEffect(() => {
@@ -224,22 +227,24 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
             await updateUserData({ dailyRefreshes: (userData?.dailyRefreshes || 0) + 1 });
         }
 
-        setAppState('loading');
-        setSessionError('');
-
         const cacheKey = type === 'study' ? 'cachedStudy' : type === 'quiz' ? 'cachedQuiz' : 'cachedAnki';
 
-        // Usa cache se disponível e não for refresh forçado
-        if (trail[cacheKey] && !forceRefresh) {
-            if (type === 'study') setStudyContent(trail[cacheKey]);
-            else if (type === 'quiz') setQuizQuestions(trail[cacheKey]);
-            else if (type === 'anki') setAnkiCards(trail[cacheKey]);
+        // Reusa o material existente se disponível sem chamar a IA caso não seja refresh forçado
+        const existingContent = type === 'study' ? (studyContent || trail?.cachedStudy || trail?.[cacheKey]) : trail?.[cacheKey];
+
+        if (existingContent && !forceRefresh) {
+            if (type === 'study') setStudyContent(existingContent);
+            else if (type === 'quiz') setQuizQuestions(existingContent);
+            else if (type === 'anki') setAnkiCards(existingContent);
 
             resetQuizState();
             resetAnkiState();
             setAppState(type === 'study' ? 'studying_material' : type === 'quiz' ? 'quiz' : 'studying_anki');
             return;
         }
+
+        setAppState('loading');
+        setSessionError('');
 
         try {
             const parsedData = await fetchGeneratedStudyContent(trail, type, selectedModel, isRoot);
