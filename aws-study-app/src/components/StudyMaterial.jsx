@@ -42,6 +42,35 @@ export default function StudyMaterial({
     const contentRef = useRef(null);
     const toolbarScrollRef = useRef(null);
 
+    // Formata o texto Markdown para exibição limpa e com quebras de linha reais no editor
+    const cleanTextForEditing = (rawText) => {
+        if (!rawText) return '';
+        let text = rawText;
+
+        // Converte sequências literais escapadas como \n ou \\n em quebras de linha reais no editor
+        text = text.replace(/\\n/g, '\n');
+        text = text.replace(/\\"/g, '"');
+
+        return text.trim();
+    };
+
+    // Suporte a indentação com a tecla Tab dentro do editor de texto
+    const handleKeyDownInEditor = (e) => {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const start = e.target.selectionStart;
+            const end = e.target.selectionEnd;
+            const value = e.target.value;
+            const newValue = value.substring(0, start) + '  ' + value.substring(end);
+            setEditableText(newValue);
+            setTimeout(() => {
+                if (e.target) {
+                    e.target.selectionStart = e.target.selectionEnd = start + 2;
+                }
+            }, 0);
+        }
+    };
+
     // Permite rolar a barra de opções na horizontal usando a roda do mouse (wheel)
     const handleToolbarWheel = (e) => {
         if (toolbarScrollRef.current && e.deltaY !== 0) {
@@ -741,7 +770,7 @@ export default function StudyMaterial({
                     {/* Botão de Modo Edição Completa do Material */}
                     <button
                         onClick={() => {
-                            setEditableText(studyContent || '');
+                            setEditableText(cleanTextForEditing(studyContent || ''));
                             setIsEditingFullMaterial(true);
                         }}
                         title="Editar o material completo, fórmulas e gráficos com visualização ao vivo em tempo real"
@@ -808,7 +837,7 @@ export default function StudyMaterial({
                 <div className="flex flex-row items-center gap-2 w-full sm:w-auto">
                     <button
                         onClick={() => {
-                            setEditableText(studyContent || '');
+                            setEditableText(cleanTextForEditing(studyContent || ''));
                             setIsEditingFullMaterial(true);
                         }}
                         className="sm:hidden flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold py-2.5 px-3 rounded-xl transition-all text-xs flex items-center justify-center gap-1 shadow-sm"
@@ -895,6 +924,13 @@ export default function StudyMaterial({
                             {/* Barra de Ferramentas de Inserção Rápida */}
                             <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-slate-800/80 overflow-x-auto no-scrollbar flex-shrink-0">
                                 <button
+                                    onClick={() => setEditableText(prev => cleanTextForEditing(prev))}
+                                    className="text-[10px] font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-800/80 px-2.5 py-1 rounded-lg hover:bg-emerald-900 whitespace-nowrap flex-shrink-0 flex items-center gap-1 shadow-sm"
+                                    title="Converter \n em quebras de linha reais e organizar a formatação"
+                                >
+                                    ✨ Auto-Formatar Texto
+                                </button>
+                                <button
                                     onClick={() => setEditableText(prev => prev + '\n\n```mermaid\ngraph TD\nA["Início"] --> B["Resultado"]\n```\n')}
                                     className="text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 px-2 py-1 rounded-lg hover:bg-indigo-900 whitespace-nowrap flex-shrink-0"
                                 >
@@ -922,8 +958,11 @@ export default function StudyMaterial({
 
                             <textarea
                                 value={editableText}
+                                onKeyDown={handleKeyDownInEditor}
                                 onChange={(e) => setEditableText(e.target.value)}
-                                className="w-full flex-grow p-3 bg-slate-950 font-mono text-xs text-slate-100 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500 resize-none custom-scrollbar leading-relaxed"
+                                placeholder="Digite ou cole aqui seu texto em Markdown..."
+                                className="w-full flex-grow p-3 bg-slate-950 font-mono text-xs sm:text-sm text-slate-100 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500 resize-none custom-scrollbar leading-relaxed whitespace-pre-wrap"
+                                style={{ tabSize: 2 }}
                             />
                         </div>
 
