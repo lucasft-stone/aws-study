@@ -286,9 +286,12 @@ export default function StudyMaterial({
 
             let code = lines.join('\n').trim();
 
-            // Auto-quoting inteligente para mindmaps: root("(Texto)") -> root("Texto")
+            // Auto-quoting inteligente para mindmaps: root("(Texto)") -> root["Texto"]
             if (code.toLowerCase().startsWith('mindmap')) {
-                code = code.replace(/root\("([^"]+)"\)/gi, 'root("$1")').replace(/\("([^"]+)"\)/g, '("$1")');
+                code = code
+                    .replace(/root\s*\(\s*"([^"]+)"\s*\)/gi, 'root["$1"]')
+                    .replace(/\(\s*"([^"]+)"\s*\)/g, '["$1"]')
+                    .replace(/root\s*\(\s*\(([^)]+)\)\s*\)/gi, 'root["$1"]');
             }
 
             // Auto-quoting inteligente de rótulos com caracteres especiais como :, =, <, >, (, )

@@ -20,7 +20,8 @@ import {
     ENABLE_FIREBASE_AUTH, 
     HIDE_EXISTING_TRAILS, 
     ROOT_USER_UID,
-    checkIsAdmin 
+    checkIsAdmin,
+    updateProgressCache
 } from './services/firebaseService';
 import { useAuthAndData } from './hooks/useAuthAndData';
 import { useStudySession } from './hooks/useStudySession';
@@ -218,6 +219,18 @@ export default function App() {
 
     const currentError = sessionError || authError;
 
+    const handleUpdateStudyContent = (newText) => {
+        setStudyContent(newText);
+        if (currentTrail) {
+            const isCustom = !currentTrail.id?.startsWith('level-');
+            if (isCustom && editTrail) {
+                editTrail(currentTrail.id, currentTrail.title, newText, currentTrail.topic);
+            } else if (user?.uid) {
+                updateProgressCache(user.uid, currentTrail.id, 'cachedStudy', newText);
+            }
+        }
+    };
+
     const renderContent = () => {
         if (!userData && ENABLE_FIREBASE_AUTH && appState !== 'login' && appState !== 'admin') {
             return <LoadingScreen text="Carregando dados do usuário..." />;
@@ -304,7 +317,7 @@ export default function App() {
                         handleFinishStudyAndStartQuiz={handleFinishStudyAndStartQuiz}
                         ROOT_USER_UID={ROOT_USER_UID}
                         MAX_DAILY_REFRESHES={MAX_DAILY_REFRESHES}
-                        updateStudyContent={setStudyContent}
+                        updateStudyContent={handleUpdateStudyContent}
                     />
                 );
 

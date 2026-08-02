@@ -205,12 +205,19 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         if (user?.uid && trail.id.startsWith('level-')) {
             const cachedData = await fetchStudyLevelProgress(user.uid, trail.id);
             if (cachedData) {
-                setCurrentTrail({ ...trail, ...cachedData });
+                const fullTrail = { ...trail, ...cachedData };
+                setCurrentTrail(fullTrail);
+                if (cachedData.cachedStudy) {
+                    setStudyContent(cachedData.cachedStudy);
+                }
             } else {
                 setCurrentTrail(trail);
             }
         } else {
             setCurrentTrail(trail);
+            if (trail.cachedStudy || trail.content) {
+                setStudyContent(trail.cachedStudy || trail.content);
+            }
         }
         setAppState('trail_options');
     };
@@ -231,7 +238,7 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         const cacheKey = type === 'study' ? 'cachedStudy' : type === 'quiz' ? 'cachedQuiz' : 'cachedAnki';
 
         // Reusa o material existente se disponível sem chamar a IA caso não seja refresh forçado
-        const existingContent = type === 'study' ? (studyContent || trail?.cachedStudy || trail?.[cacheKey]) : trail?.[cacheKey];
+        const existingContent = type === 'study' ? (trail?.cachedStudy || trail?.content || (currentTrail?.id === trail?.id ? studyContent : null)) : trail?.[cacheKey];
 
         if (existingContent && !forceRefresh) {
             if (type === 'study') setStudyContent(existingContent);
