@@ -36,6 +36,7 @@ export default function StudyMaterial({
     const [fontSizeLevel, setFontSizeLevel] = useState(1);
     const [copiedToast, setCopiedToast] = useState(false);
     const [isEditingFullMaterial, setIsEditingFullMaterial] = useState(false);
+    const [isFocusMode, setIsFocusMode] = useState(false); // Modo Foco Zen / Fullscreen
     const [mobileEditorTab, setMobileEditorTab] = useState('edit'); // 'edit' ou 'preview' para mobile
     const [editableText, setEditableText] = useState(studyContent || '');
     const contentRef = useRef(null);
@@ -304,6 +305,7 @@ export default function StudyMaterial({
                 const el = placeholders[idx];
                 if (el.dataset.mermaidRendered) continue;
                 el.dataset.mermaidRendered = 'true';
+                el.dataset.diagramIndex = idx;
 
                 const rawEncoded = el.dataset.mermaidCode;
                 if (!rawEncoded) continue;
@@ -418,9 +420,7 @@ export default function StudyMaterial({
                     const errorMsg = container.querySelector('.mermaid-editor-error-msg');
                     if (!textarea) return;
 
-                    const rawOldEncoded = container.dataset.mermaidCode;
-                    const oldCode = rawOldEncoded ? decodeURIComponent(rawOldEncoded) : '';
-
+                    const diagramIdx = parseInt(container.dataset.diagramIndex || '0', 10);
                     const editedCode = textarea.value.trim();
                     if (!editedCode) return;
 
@@ -458,21 +458,19 @@ export default function StudyMaterial({
                             </div>
                         `;
 
-                        // Persiste a edição do gráfico permanentemente no texto do material e no Firestore/localStorage
-                        if (studyContent && oldCode && oldCode !== editedCode) {
-                            let updatedFullText = studyContent;
-                            if (updatedFullText.includes(oldCode)) {
-                                updatedFullText = updatedFullText.replace(oldCode, editedCode);
-                            } else {
-                                const snippet = oldCode.slice(0, 25);
-                                const idx = updatedFullText.indexOf(snippet);
-                                if (idx !== -1) {
-                                    const endFence = updatedFullText.indexOf('```', idx);
-                                    if (endFence !== -1) {
-                                        updatedFullText = updatedFullText.substring(0, idx) + editedCode + '\n' + updatedFullText.substring(endFence);
-                                    }
+                        // Persiste a edição do gráfico pelo seu índice ordinal no texto do material e no Firestore/localStorage
+                        if (studyContent && editedCode) {
+                            let matchCount = 0;
+                            const mermaidBlockRegex = /```mermaid[\s\S]*?```/gi;
+
+                            const updatedFullText = studyContent.replace(mermaidBlockRegex, (match) => {
+                                if (matchCount === diagramIdx) {
+                                    matchCount++;
+                                    return '```mermaid\n' + editedCode + '\n```';
                                 }
-                            }
+                                matchCount++;
+                                return match;
+                            });
 
                             if (updateStudyContent) {
                                 updateStudyContent(updatedFullText);
@@ -666,6 +664,15 @@ export default function StudyMaterial({
                             A+
                         </button>
                     </div>
+
+                    {/* Botão de Modo Foco Zen (Fullscreen) */}
+                    <button
+                        onClick={() => setIsFocusMode(true)}
+                        title="Expandir o material para tela cheia sem distrações (Modo Foco)"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] sm:text-xs py-1.5 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-1 shadow-sm whitespace-nowrap flex-shrink-0"
+                    >
+                        🔍 Modo Foco
+                    </button>
 
                     {/* Botão de Modo Edição Completa do Material */}
                     <button
@@ -868,6 +875,46 @@ export default function StudyMaterial({
                             />
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Modal Fullscreen de Modo Foco Zen (Leitura Totalmente Expandida) */}
+            {isFocusMode && (
+                <div className="fixed inset-0 z-50 bg-white dark:bg-slate-950 p-4 sm:p-10 flex flex-col h-full w-full animate-fade-in">
+                    {/* Cabeçalho do Modo Foco */}
+                    <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200 dark:border-slate-800 flex-shrink-0">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-900/60">
+                                🔍 Modo Foco Total
+                            </span>
+                            <h2 className="text-base sm:text-2xl font-extrabold text-slate-800 dark:text-white line-clamp-1">
+                                {currentTrail?.title}
+                            </h2>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            {/* Zoom da Fonte no Modo Foco */}
+                            <div className="flex items-center bg-slate-100 dark:bg-gray-800 p-1 rounded-xl gap-1">
+                                <button onClick={() => setFontSizeLevel(prev => Math.max(0, prev - 1))} disabled={fontSizeLevel === 0} className="w-7 h-7 font-bold text-xs rounded-lg hover:bg-white dark:hover:bg-gray-700 text-slate-700 dark:text-slate-200">A-</button>
+                                <span className="text-[11px] font-bold text-slate-400 px-1">{fontSizeLevel === 0 ? 'P' : fontSizeLevel === 1 ? 'M' : fontSizeLevel === 2 ? 'G' : 'GG'}</span>
+                                <button onClick={() => setFontSizeLevel(prev => Math.min(3, prev + 1))} disabled={fontSizeLevel === 3} className="w-7 h-7 font-bold text-xs rounded-lg hover:bg-white dark:hover:bg-gray-700 text-slate-700 dark:text-slate-200">A+</button>
+                            </div>
+
+                            <button
+                                onClick={() => setIsFocusMode(false)}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs transition-all shadow flex items-center gap-1.5"
+                            >
+                                ❌ Sair do Modo Foco
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Canvas de Leitura 100% Expandido sem distrações */}
+                    <div
+                        ref={contentRef}
+                        className={`markdown-content flex-grow overflow-y-auto pr-3 sm:pr-8 custom-scrollbar max-w-5xl mx-auto w-full ${fontClasses[fontSizeLevel]}`}
+                        dangerouslySetInnerHTML={{ __html: formattedContent }}
+                    />
                 </div>
             )}
         </div>
