@@ -208,43 +208,85 @@ export default function StudyMaterial({
     useEffect(() => {
         if (!contentRef.current) return;
 
+        const mermaidKeywords = ['graph', 'flowchart', 'sequenceDiagram', 'pie', 'gantt', 'classDiagram', 'stateDiagram-v2', 'stateDiagram', 'erDiagram', 'journey', 'mindmap', 'quadrantChart', 'architecture', 'c4Diagram', 'block-beta', 'block', 'gitGraph', 'timeline', 'sankey-beta', 'kanban'];
+
+        const cleanMermaidSyntax = (rawText) => {
+            let text = rawText
+                .replace(/&gt;/g, '>')
+                .replace(/&lt;/g, '<')
+                .replace(/&amp;/g, '&')
+                .replace(/\\n/g, '\n')
+                .trim();
+
+            let lines = text.split('\n');
+            const firstKeywordIdx = lines.findIndex(line => {
+                const trimmed = line.trim();
+                return mermaidKeywords.some(kw => trimmed.startsWith(kw));
+            });
+
+            if (firstKeywordIdx !== -1) {
+                lines = lines.slice(firstKeywordIdx);
+            }
+
+            return lines.join('\n').trim();
+        };
+
         const renderContentElements = async () => {
-            // 1. Processa gráficos Mermaid PRIMEIRO e isoladamente usando mermaid.run()
-            const mermaidElements = Array.from(contentRef.current.querySelectorAll('.language-mermaid, code.language-mermaid'));
-            for (let idx = 0; idx < mermaidElements.length; idx++) {
-                const codeEl = mermaidElements[idx];
-                const pre = codeEl.closest('pre') || codeEl;
-
+            // 1. Varredura Universal: examina TODOS os blocos <pre> para encontrar qualquer código Mermaid
+            const preElements = Array.from(contentRef.current.querySelectorAll('pre'));
+            
+            for (let idx = 0; idx < preElements.length; idx++) {
+                const pre = preElements[idx];
                 if (pre.dataset.mermaidRendered) continue;
-                pre.dataset.mermaidRendered = 'true';
 
-                let codeText = (codeEl.innerText || codeEl.textContent || '')
-                    .replace(/&gt;/g, '>')
-                    .replace(/&lt;/g, '<')
-                    .replace(/&amp;/g, '&')
-                    .replace(/\\n/g, '\n')
-                    .trim();
+                const codeEl = pre.querySelector('code') || pre;
+                const rawCode = (codeEl.innerText || codeEl.textContent || '').trim();
+                const cleanCode = cleanMermaidSyntax(rawCode);
 
-                if (!codeText) continue;
+                if (!cleanCode) continue;
 
-                try {
-                    const chartWrapper = document.createElement('div');
-                    chartWrapper.className = 'mermaid my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center overflow-x-auto flex justify-center items-center';
-                    chartWrapper.textContent = codeText;
+                // Verifica se a primeira linha limpa começa com qualquer palavra-chave do Mermaid
+                const firstLine = cleanCode.split('\n')[0].trim();
+                const isMermaidDiagram = mermaidKeywords.some(kw => firstLine.toLowerCase().startsWith(kw.toLowerCase()));
 
-                    if (pre.parentNode) {
-                        pre.parentNode.replaceChild(chartWrapper, pre);
-                        await mermaid.run({ nodes: [chartWrapper] });
+                if (isMermaidDiagram) {
+                    pre.dataset.mermaidRendered = 'true';
+                    try {
+                        const uniqueId = `mermaid_chart_${Date.now()}_${idx}`;
+                        const { svg } = await mermaid.render(uniqueId, cleanCode);
+
+                        const chartWrapper = document.createElement('div');
+                        chartWrapper.className = 'mermaid-chart-container my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center overflow-x-auto flex flex-col justify-center items-center gap-3';
+                        chartWrapper.innerHTML = `
+                            <div class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/60">
+                                📊 Gráfico / Diagrama Visual
+                            </div>
+                            <div class="w-full flex justify-center items-center overflow-x-auto">${svg}</div>
+                        `;
+
+                        if (pre.parentNode) {
+                            pre.parentNode.replaceChild(chartWrapper, pre);
+                        }
+                    } catch (err) {
+                        console.warn('Erro ao renderizar gráfico Mermaid:', err);
+                        try {
+                            const fallbackDiv = document.createElement('div');
+                            fallbackDiv.className = 'mermaid my-6 p-4 bg-slate-900 text-slate-100 rounded-2xl border border-slate-700 text-center overflow-x-auto';
+                            fallbackDiv.textContent = cleanCode;
+                            if (pre.parentNode) {
+                                pre.parentNode.replaceChild(fallbackDiv, pre);
+                                await mermaid.run({ nodes: [fallbackDiv] });
+                            }
+                        } catch (e2) {
+                            console.error('Fallback do Mermaid também falhou:', e2);
+                        }
                     }
-                } catch (err) {
-                    console.warn('Erro ao renderizar gráfico Mermaid:', err);
-                    pre.dataset.mermaidRendered = 'failed';
                 }
             }
 
             // 2. Processa blocos de código regulares APÓS os gráficos
-            const preElements = contentRef.current.querySelectorAll('pre');
-            preElements.forEach((pre) => {
+            const codePreElements = contentRef.current.querySelectorAll('pre');
+            codePreElements.forEach((pre) => {
                 const codeEl = pre.querySelector('code');
                 const classList = codeEl ? Array.from(codeEl.classList) : [];
 
