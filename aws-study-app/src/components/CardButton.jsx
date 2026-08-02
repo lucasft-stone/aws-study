@@ -6,9 +6,9 @@ export default function CardButton({ title, description, onClick, disabled = fal
             <button onClick={onClick} disabled={disabled} className={`w-full mb-4 p-6 text-left bg-white dark:bg-gray-800 rounded-2xl shadow-lg transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-xl hover:-translate-y-1'}`}>
                 <div className="flex items-center gap-5">
                     <div className="text-3xl">{icon}</div>
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{title}</h2>
-                        <p className="text-slate-500 dark:text-slate-400">{description}</p>
+                    <div className="flex-grow min-w-0">
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 truncate">{title}</h2>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">{description}</p>
                     </div>
                 </div>
             </button>

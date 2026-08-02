@@ -232,12 +232,15 @@ export default function Home({
                         <div className="space-y-3">
                             {activeTopic?.items.map(item => {
                                 const isLocked = item.xpRequired !== undefined && userData.xp < item.xpRequired;
+                                const shortDescription = item.xpRequired !== undefined 
+                                    ? `${item.xpRequired} XP necessários` 
+                                    : (item.content ? (item.content.replace(/[\r\n]+/g, ' ').trim().substring(0, 90) + (item.content.length > 90 ? '...' : '')) : 'Subtópico de estudo');
 
                                 return (
                                     <CardButton
                                         key={item.id}
                                         title={item.title}
-                                        description={item.content || (item.xpRequired !== undefined ? `${item.xpRequired} XP necessários` : 'Subtópico de estudo')}
+                                        description={shortDescription}
                                         disabled={isLocked}
                                         onClick={() => handleSelectTrail(item)}
                                         icon={isLocked ? '🔒' : (item.icon || '📌')}
