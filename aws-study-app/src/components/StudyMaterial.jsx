@@ -40,6 +40,14 @@ export default function StudyMaterial({
     const [mobileEditorTab, setMobileEditorTab] = useState('edit'); // 'edit' ou 'preview' para mobile
     const [editableText, setEditableText] = useState(studyContent || '');
     const contentRef = useRef(null);
+    const toolbarScrollRef = useRef(null);
+
+    // Permite rolar a barra de opções na horizontal usando a roda do mouse (wheel)
+    const handleToolbarWheel = (e) => {
+        if (toolbarScrollRef.current && e.deltaY !== 0) {
+            toolbarScrollRef.current.scrollLeft += e.deltaY * 0.8;
+        }
+    };
 
     const fontClasses = ['text-sm', 'text-base', 'text-lg', 'text-xl'];
 
@@ -632,8 +640,12 @@ export default function StudyMaterial({
                     {currentTrail?.title}
                 </h1>
 
-                {/* Barra de Ações 100% Rolante na Horizontal (Single Line Horizontal Scrollable Bar) */}
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 w-full flex-nowrap flex-shrink-0 mt-1">
+                {/* Barra de Ações 100% Rolante na Horizontal (Suporta Gestos Touch, Trackpad e Roda do Mouse) */}
+                <div 
+                    ref={toolbarScrollRef}
+                    onWheel={handleToolbarWheel}
+                    className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 w-full flex-nowrap flex-shrink-0 mt-1 touch-pan-x scroll-smooth select-none"
+                >
                     {/* Controles de Zoom de Fonte */}
                     <div className="flex items-center bg-slate-100 dark:bg-gray-700/60 p-0.5 rounded-xl gap-0.5 flex-shrink-0">
                         <button
