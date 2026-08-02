@@ -27,7 +27,7 @@ export function useAuthAndData() {
                 try {
                     if (currentUser) {
                         setUser(currentUser);
-                        const data = await loadOrCreateUserData(currentUser.uid, MAX_HEARTS);
+                        const data = await loadOrCreateUserData(currentUser, MAX_HEARTS);
                         setUserData(data);
                         const trails = await fetchUserCustomTrails(currentUser.uid);
                         setCustomTrails(trails);

@@ -6,6 +6,7 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth != null && (
         request.auth.uid == 'Wafgz4MpWUXOf7TKREcC9yZ5k073' ||
+        request.auth.uid == 'fy9fGuWe5Kh4veCFkRbp6pN9MyK2' ||
         request.auth.token.email == 'felps.st2020@gmail.com'
       );
     }

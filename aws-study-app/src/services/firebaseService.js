@@ -24,6 +24,15 @@ export const HIDE_EXISTING_TRAILS = import.meta.env.VITE_HIDE_EXISTING_TRAILS ==
 export const ROOT_USER_UID = import.meta.env.VITE_ROOT_USER_UID;
 
 /**
+ * Lista oficial de Administradores / Usuários Ilimitados (por UID ou E-mail).
+ */
+const BUILTIN_UNLIMITED_USERS = [
+    'Wafgz4MpWUXOf7TKREcC9yZ5k073',
+    'fy9fGuWe5Kh4veCFkRbp6pN9MyK2', // UID do Felps
+    'felps.st2020@gmail.com'
+];
+
+/**
  * Verifica se um usuário possui permissões de Administrador / Ilimitado (via UID ou E-mail).
  */
 export const checkIsAdmin = (user) => {
@@ -31,13 +40,9 @@ export const checkIsAdmin = (user) => {
     const rawAdmins = import.meta.env.VITE_ROOT_USER_UID || '';
     const adminList = rawAdmins.split(',').map(s => s.trim()).filter(Boolean);
     
-    // Lista de usuários ilimitados (por UID ou E-mail)
-    const unlimitedUsers = [
-        'felps.st2020@gmail.com',
-        ...adminList
-    ];
+    const unlimitedSet = new Set([...BUILTIN_UNLIMITED_USERS, ...adminList]);
 
-    return unlimitedUsers.includes(user.uid) || (user.email && unlimitedUsers.includes(user.email));
+    return unlimitedSet.has(user.uid) || (user.email && unlimitedSet.has(user.email));
 };
 
 const firebaseConfig = {
@@ -95,10 +100,10 @@ export const logoutUser = async () => {
 };
 
 /**
- * Carrega ou inicializa o documento do usuário no Firestore.
+ * Carrega ou inicializa o documento do usuário no Firestore, salvando foto, nome e email.
  */
-export const loadOrCreateUserData = async (uid, maxHearts) => {
-    if (!ENABLE_FIREBASE_AUTH || !db) {
+export const loadOrCreateUserData = async (currentUser, maxHearts) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !currentUser) {
         const today = new Date().toISOString().split('T')[0];
         return {
             xp: 150,
@@ -110,14 +115,30 @@ export const loadOrCreateUserData = async (uid, maxHearts) => {
         };
     }
 
+    const uid = currentUser.uid || currentUser;
     const userRef = doc(db, 'users', uid);
     let docSnap = await getDoc(userRef);
 
+    const profileData = {
+        displayName: currentUser.displayName || '',
+        email: currentUser.email || '',
+        photoURL: currentUser.photoURL || ''
+    };
+
     let data;
     if (docSnap.exists()) {
-        data = docSnap.data();
+        data = { ...docSnap.data(), ...profileData };
+        // Atualiza nome, email e foto se necessário
+        if (currentUser.displayName || currentUser.email) {
+            await setDoc(userRef, profileData, { merge: true });
+        }
     } else {
-        data = { xp: 0, hearts: maxHearts, createdAt: new Date() };
+        data = { 
+            xp: 0, 
+            hearts: maxHearts, 
+            createdAt: new Date(),
+            ...profileData 
+        };
         await setDoc(userRef, data);
     }
 
@@ -279,4 +300,3 @@ export const fetchUserAllData = async (targetUid) => {
 
     return { trails, progress };
 };
-
