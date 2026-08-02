@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { fetchGeneratedStudyContent } from '../services/geminiService';
 import { updateProgressCache, fetchStudyLevelProgress, ENABLE_FIREBASE_AUTH } from '../services/firebaseService';
 
@@ -104,9 +104,16 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         }
     }, [appState, currentTrail, studyContent, quizQuestions, ankiCards]);
 
+    const sessionRestoredRef = useRef(false);
+
     // Restaura o estado da navegação e o conteúdo em cache a partir da URL ao recarregar a página (F5)
     useEffect(() => {
+        if (sessionRestoredRef.current) return;
+
         const restoreSessionFromUrl = async () => {
+            if (sessionRestoredRef.current) return;
+            sessionRestoredRef.current = true;
+
             const currentUrlParams = new URLSearchParams(window.location.search);
             const savedState = currentUrlParams.get('state') || targetState;
             const savedTrailId = currentUrlParams.get('trail') || currentTrail?.id;
@@ -148,7 +155,7 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         };
 
         restoreSessionFromUrl();
-    }, [user, targetState, studyContent, currentTrail?.id]);
+    }, [user, targetState, currentTrail?.id]);
 
     // Sincroniza a localização da página e a trilha atual na URL (ex: ?state=studying_material&trail=level-s3)
     useEffect(() => {
