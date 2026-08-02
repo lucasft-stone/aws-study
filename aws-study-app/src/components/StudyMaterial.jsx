@@ -502,11 +502,18 @@ export default function StudyMaterial({
             </div>
 
             {/* Container do Conteúdo Formatado */}
-            <div
-                ref={contentRef}
-                className={`markdown-content flex-grow overflow-y-auto pr-3 sm:pr-5 custom-scrollbar ${fontClasses[fontSizeLevel]}`}
-                dangerouslySetInnerHTML={{ __html: formattedContent }}
-            />
+            {studyContent ? (
+                <div
+                    ref={contentRef}
+                    className={`markdown-content flex-grow overflow-y-auto pr-3 sm:pr-5 custom-scrollbar ${fontClasses[fontSizeLevel]}`}
+                    dangerouslySetInnerHTML={{ __html: formattedContent }}
+                />
+            ) : (
+                <div className="flex-grow flex flex-col items-center justify-center p-8 text-center text-slate-400 gap-3">
+                    <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="font-bold text-sm">Carregando material de estudo...</p>
+                </div>
+            )}
 
             {/* Rodapé de Ações */}
             <div className="mt-6 flex flex-col sm:flex-row justify-between items-center gap-3 flex-shrink-0 pt-4 border-t border-slate-100 dark:border-gray-700">

@@ -50,11 +50,32 @@ export function calculateSM2(card, rating) {
     };
 }
 
+const getSavedLocalSession = () => {
+    try {
+        const raw = localStorage.getItem('aws_study_active_session');
+        if (raw) return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+    return null;
+};
+
 export function useStudySession({ user, userData, updateUserData, isRoot }) {
-    const [appState, setAppState] = useState(ENABLE_FIREBASE_AUTH && !user ? 'login' : 'home');
-    const [currentTrail, setCurrentTrail] = useState(null);
-    const [studyContent, setStudyContent] = useState('');
-    const [quizQuestions, setQuizQuestions] = useState([]);
+    const savedSession = getSavedLocalSession();
+
+    const [appState, setAppState] = useState(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const savedState = urlParams.get('state');
+        if (savedState && savedState !== 'home' && savedState !== 'login') {
+            return savedState;
+        }
+        return savedSession?.appState || (ENABLE_FIREBASE_AUTH && !user ? 'login' : 'home');
+    });
+
+    const [currentTrail, setCurrentTrail] = useState(() => savedSession?.currentTrail || null);
+    const [studyContent, setStudyContent] = useState(() => savedSession?.studyContent || '');
+    const [quizQuestions, setQuizQuestions] = useState(() => savedSession?.quizQuestions || []);
+    const [ankiCards, setAnkiCards] = useState(() => savedSession?.ankiCards || []);
     const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
 
     useEffect(() => {
@@ -62,10 +83,25 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
             if (!user) {
                 setAppState('login');
             } else {
-                setAppState(prev => (prev === 'login' ? 'home' : prev));
+                setAppState(prev => (prev === 'login' ? (savedSession?.appState || 'home') : prev));
             }
         }
-    }, [user]);
+    }, [user, savedSession?.appState]);
+
+    // Persiste a sessão ativa sincronizada em localStorage
+    useEffect(() => {
+        if (!appState || appState === 'login' || appState === 'home') {
+            localStorage.removeItem('aws_study_active_session');
+        } else {
+            localStorage.setItem('aws_study_active_session', JSON.stringify({
+                appState,
+                currentTrail,
+                studyContent,
+                quizQuestions,
+                ankiCards
+            }));
+        }
+    }, [appState, currentTrail, studyContent, quizQuestions, ankiCards]);
 
     // Restaura o estado da navegação e o conteúdo em cache a partir da URL ao recarregar a página (F5)
     useEffect(() => {
@@ -139,7 +175,6 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
     const [lastQuizXp, setLastQuizXp] = useState(0);
 
     // Estados do Anki (Flashcards)
-    const [ankiCards, setAnkiCards] = useState([]);
     const [currentAnkiCardIndex, setCurrentAnkiCardIndex] = useState(0);
     const [isCardFlipped, setIsCardFlipped] = useState(false);
 
