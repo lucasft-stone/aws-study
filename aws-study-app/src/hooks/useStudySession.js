@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { fetchGeneratedStudyContent } from '../services/geminiService';
-import { updateProgressCache, fetchStudyLevelProgress } from '../services/firebaseService';
+import { updateProgressCache, fetchStudyLevelProgress, ENABLE_FIREBASE_AUTH } from '../services/firebaseService';
 
 const XP_PER_CORRECT_ANSWER = 25;
 const MAX_DAILY_REFRESHES = 10;
@@ -51,11 +51,21 @@ export function calculateSM2(card, rating) {
 }
 
 export function useStudySession({ user, userData, updateUserData, isRoot }) {
-    const [appState, setAppState] = useState('home');
+    const [appState, setAppState] = useState(ENABLE_FIREBASE_AUTH && !user ? 'login' : 'home');
     const [currentTrail, setCurrentTrail] = useState(null);
     const [studyContent, setStudyContent] = useState('');
     const [quizQuestions, setQuizQuestions] = useState([]);
     const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+
+    useEffect(() => {
+        if (ENABLE_FIREBASE_AUTH) {
+            if (!user) {
+                setAppState('login');
+            } else {
+                setAppState(prev => (prev === 'login' ? 'home' : prev));
+            }
+        }
+    }, [user]);
 
     // Estados do Quiz
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
