@@ -492,22 +492,21 @@ export default function StudyMaterial({
                         `;
 
                         // Persiste a edição do gráfico pelo seu índice ordinal no texto do material e no Firestore/localStorage
-                        if (studyContent && editedCode) {
+                        if (studyContent && codeToRender) {
                             const replaceNthDiagramInContent = (fullText, targetIdx, codeToInsert) => {
                                 if (!fullText) return fullText;
 
-                                const fencedRegex = /```\s*(?:mermaid|mermaid-js)?\s*([\s\S]*?)```/gi;
+                                const fencedRegex = /```[\s\S]*?```/gi;
                                 let matchCount = 0;
-                                const replaced = fullText.replace(fencedRegex, (fullMatch, block) => {
-                                    const lower = (block || '').trim().toLowerCase();
-                                    if (lower.startsWith('mermaid') || lower.startsWith('graph') || lower.startsWith('flowchart') || lower.startsWith('sequencediagram') || lower.startsWith('mindmap') || lower.startsWith('classdiagram') || lower.startsWith('erdiagram') || lower.startsWith('gantt') || lower.startsWith('pie')) {
+                                const replaced = fullText.replace(fencedRegex, (match) => {
+                                    if (/mermaid|graph|flowchart|sequenceDiagram|mindmap|classDiagram|erDiagram|gantt|pie/i.test(match)) {
                                         if (matchCount === targetIdx) {
                                             matchCount++;
                                             return '```mermaid\n' + codeToInsert + '\n```';
                                         }
                                         matchCount++;
                                     }
-                                    return fullMatch;
+                                    return match;
                                 });
 
                                 if (matchCount > targetIdx) {
@@ -517,18 +516,20 @@ export default function StudyMaterial({
                                 const unfencedRegex = /(?:^|\n)(?:mermaid\s*\n)?\s*(?:graph|flowchart|sequenceDiagram|pie|gantt|classDiagram|mindmap)[\s\S]*?(?=\n\n|\n#|$)/gi;
                                 let unfencedCount = 0;
 
-                                return fullText.replace(unfencedRegex, () => {
+                                return fullText.replace(unfencedRegex, (match) => {
                                     if (unfencedCount === targetIdx) {
                                         unfencedCount++;
                                         return '\n```mermaid\n' + codeToInsert + '\n```\n';
                                     }
                                     unfencedCount++;
+                                    return match;
                                 });
                             };
 
                             const updatedFullText = replaceNthDiagramInContent(studyContent, diagramIdx, codeToRender);
 
                             container.dataset.renderedCode = encodeURIComponent(codeToRender);
+                            setEditableText(updatedFullText);
 
                             if (updateStudyContent) {
                                 updateStudyContent(updatedFullText);
