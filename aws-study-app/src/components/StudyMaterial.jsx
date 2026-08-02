@@ -13,6 +13,8 @@ mermaid.initialize({
     fontFamily: 'system-ui, -apple-system, sans-serif'
 });
 
+const mermaidKeywords = ['graph', 'flowchart', 'sequenceDiagram', 'pie', 'gantt', 'classDiagram', 'stateDiagram-v2', 'stateDiagram', 'erDiagram', 'journey', 'mindmap', 'quadrantChart', 'architecture', 'c4Diagram', 'block-beta', 'block', 'gitGraph', 'timeline', 'sankey-beta', 'kanban'];
+
 export default function StudyMaterial({
     currentTrail,
     userData,
@@ -119,13 +121,30 @@ export default function StudyMaterial({
             }
         };
 
-        // 1. Re-formata blocos com cercas ``` preservando TODAS as linguagens de programação e Mermaid
-        text = text.replace(/```([a-zA-Z0-9_-]*)\s*([\s\S]*?)```/gi, (fullMatch, lang, block) => {
+        // 1. Re-formata blocos com cercas ``` convertendo Mermaid em placeholders HTML protegidos (encodeURIComponent)
+        text = text.replace(/```([a-zA-Z0-9_-]*)\s*\n([\s\S]*?)```/gi, (fullMatch, lang, block) => {
             const trimmedLang = lang.trim().toLowerCase();
             const trimmedBlock = block.trim();
 
+            const lines = trimmedBlock.split('\n').map(l => l.trim()).filter(Boolean);
+            const firstLine = lines.length > 0 ? lines[0].toLowerCase() : '';
+            
+            const isMermaidLang = trimmedLang === 'mermaid' || trimmedLang === 'mermaid-js';
+            const startsWithMermaidKeyword = mermaidKeywords.some(kw => firstLine.startsWith(kw.toLowerCase()));
+
+            if (isMermaidLang || startsWithMermaidKeyword) {
+                let cleanBlockLines = [...lines];
+                if (cleanBlockLines.length > 0 && /^mermaid(-js)?$/i.test(cleanBlockLines[0])) {
+                    cleanBlockLines.shift();
+                }
+                const cleanCode = cleanBlockLines.join('\n');
+                const encoded = encodeURIComponent(cleanCode);
+
+                return `\n<div class="mermaid-diagram-placeholder my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center overflow-x-auto flex justify-center items-center" data-mermaid-code="${encoded}">⚡ Renderizando gráfico visual...</div>\n`;
+            }
+
             if (trimmedLang && trimmedLang !== 'json') {
-                return fullMatch; // Preserva Mermaid, Python, Bash, JS, SQL intactos
+                return fullMatch; // Preserva Python, Bash, JS, SQL intactos
             }
 
             if (trimmedBlock.startsWith('{') || trimmedBlock.startsWith('[')) {
@@ -237,7 +256,42 @@ export default function StudyMaterial({
         };
 
         const renderContentElements = async () => {
-            // 1. Varredura Universal: examina TODOS os blocos <pre> para encontrar qualquer código Mermaid
+            // 1. Processa Placeholders de Mermaid protegidos com encodeURIComponent
+            const placeholders = Array.from(contentRef.current.querySelectorAll('.mermaid-diagram-placeholder'));
+            for (let idx = 0; idx < placeholders.length; idx++) {
+                const el = placeholders[idx];
+                if (el.dataset.mermaidRendered) continue;
+                el.dataset.mermaidRendered = 'true';
+
+                const rawEncoded = el.dataset.mermaidCode;
+                if (!rawEncoded) continue;
+
+                const cleanCode = decodeURIComponent(rawEncoded);
+
+                try {
+                    const uniqueId = `mermaid_svg_${Date.now()}_${idx}`;
+                    const { svg } = await mermaid.render(uniqueId, cleanCode);
+
+                    el.innerHTML = `
+                        <div class="w-full flex flex-col items-center gap-2">
+                            <div class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/60 mb-2">
+                                📊 Gráfico / Diagrama Visual
+                            </div>
+                            <div class="w-full flex justify-center items-center overflow-x-auto">${svg}</div>
+                        </div>
+                    `;
+                } catch (err) {
+                    console.warn('Erro ao renderizar placeholder do Mermaid:', err);
+                    try {
+                        el.textContent = cleanCode;
+                        await mermaid.run({ nodes: [el] });
+                    } catch (e2) {
+                        console.error('Fallback do Mermaid também falhou:', e2);
+                    }
+                }
+            }
+
+            // 2. Varredura Universal em blocos <pre> como segundo nível de garantia
             const preElements = Array.from(contentRef.current.querySelectorAll('pre'));
             
             for (let idx = 0; idx < preElements.length; idx++) {
@@ -275,18 +329,7 @@ export default function StudyMaterial({
                             pre.parentNode.replaceChild(chartWrapper, pre);
                         }
                     } catch (err) {
-                        console.warn('Erro ao renderizar gráfico Mermaid:', err);
-                        try {
-                            const fallbackDiv = document.createElement('div');
-                            fallbackDiv.className = 'mermaid my-6 p-4 bg-slate-900 text-slate-100 rounded-2xl border border-slate-700 text-center overflow-x-auto';
-                            fallbackDiv.textContent = cleanCode;
-                            if (pre.parentNode) {
-                                pre.parentNode.replaceChild(fallbackDiv, pre);
-                                await mermaid.run({ nodes: [fallbackDiv] });
-                            }
-                        } catch (e2) {
-                            console.error('Fallback do Mermaid também falhou:', e2);
-                        }
+                        console.warn('Erro ao renderizar gráfico Mermaid em pre:', err);
                     }
                 }
             }
