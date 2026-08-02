@@ -382,13 +382,18 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         }
     };
 
+    const updateStudyContentAndCache = useCallback((newText) => {
+        setStudyContent(newText);
+        setCurrentTrail(prev => prev ? ({ ...prev, cachedStudy: newText }) : prev);
+    }, []);
+
     return {
         appState,
         setAppState,
         currentTrail,
         setCurrentTrail,
         studyContent,
-        setStudyContent,
+        setStudyContent: updateStudyContentAndCache,
         quizQuestions,
         selectedModel,
         setSelectedModel,

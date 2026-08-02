@@ -417,6 +417,9 @@ export default function StudyMaterial({
                     const errorMsg = container.querySelector('.mermaid-editor-error-msg');
                     if (!textarea) return;
 
+                    const rawOldEncoded = container.dataset.mermaidCode;
+                    const oldCode = rawOldEncoded ? decodeURIComponent(rawOldEncoded) : '';
+
                     const editedCode = textarea.value.trim();
                     if (!editedCode) return;
 
@@ -453,6 +456,33 @@ export default function StudyMaterial({
                                 </div>
                             </div>
                         `;
+
+                        // Persiste a edição do gráfico permanentemente no texto do material e no Firestore/localStorage
+                        if (studyContent && oldCode && oldCode !== editedCode) {
+                            let updatedFullText = studyContent;
+                            if (updatedFullText.includes(oldCode)) {
+                                updatedFullText = updatedFullText.replace(oldCode, editedCode);
+                            } else {
+                                const snippet = oldCode.slice(0, 25);
+                                const idx = updatedFullText.indexOf(snippet);
+                                if (idx !== -1) {
+                                    const endFence = updatedFullText.indexOf('```', idx);
+                                    if (endFence !== -1) {
+                                        updatedFullText = updatedFullText.substring(0, idx) + editedCode + '\n' + updatedFullText.substring(endFence);
+                                    }
+                                }
+                            }
+
+                            if (updateStudyContent) {
+                                updateStudyContent(updatedFullText);
+                            }
+
+                            if (user?.uid && currentTrail?.id) {
+                                updateProgressCache(user.uid, currentTrail.id, 'cachedStudy', updatedFullText).catch(e =>
+                                    console.warn('Erro ao salvar edição de gráfico no Firestore:', e)
+                                );
+                            }
+                        }
 
                         // Re-bind dos botões recém-injetados no DOM
                         const newToggleBtn = container.querySelector('.toggle-mermaid-editor-btn');
@@ -576,7 +606,7 @@ export default function StudyMaterial({
             clearTimeout(timer1);
             clearTimeout(timer2);
         };
-    }, [formattedContent, studyContent]);
+    }, [formattedContent, studyContent, currentTrail?.id, updateStudyContent, user?.uid]);
 
     return (
         <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 flex flex-col h-[88vh] border border-slate-100 dark:border-gray-700 animate-fade-in relative">
