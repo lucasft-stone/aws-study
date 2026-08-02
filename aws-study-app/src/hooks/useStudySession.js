@@ -61,21 +61,24 @@ const getSavedLocalSession = () => {
 };
 
 export function useStudySession({ user, userData, updateUserData, isRoot }) {
-    const savedSession = getSavedLocalSession();
+    const savedLocalSession = getSavedLocalSession();
 
-    const [appState, setAppState] = useState(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const savedState = urlParams.get('state');
-        if (savedState && savedState !== 'home' && savedState !== 'login') {
-            return savedState;
-        }
-        return savedSession?.appState || (ENABLE_FIREBASE_AUTH && !user ? 'login' : 'home');
-    });
+    // Lê parâmetros da URL e da sessão salva síncronamente no milissegundo 0
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialUrlState = urlParams.get('state');
+    const initialUrlTrailId = urlParams.get('trail');
 
-    const [currentTrail, setCurrentTrail] = useState(() => savedSession?.currentTrail || null);
-    const [studyContent, setStudyContent] = useState(() => savedSession?.studyContent || '');
-    const [quizQuestions, setQuizQuestions] = useState(() => savedSession?.quizQuestions || []);
-    const [ankiCards, setAnkiCards] = useState(() => savedSession?.ankiCards || []);
+    const targetState = (initialUrlState && initialUrlState !== 'home' && initialUrlState !== 'login')
+        ? initialUrlState
+        : (savedLocalSession?.appState && savedLocalSession.appState !== 'home' && savedLocalSession.appState !== 'login')
+            ? savedLocalSession.appState
+            : 'home';
+
+    const [appState, setAppState] = useState(ENABLE_FIREBASE_AUTH && !user ? 'login' : targetState);
+    const [currentTrail, setCurrentTrail] = useState(() => savedLocalSession?.currentTrail || (initialUrlTrailId ? { id: initialUrlTrailId, title: 'Trilha Atual' } : null));
+    const [studyContent, setStudyContent] = useState(() => savedLocalSession?.studyContent || '');
+    const [quizQuestions, setQuizQuestions] = useState(() => savedLocalSession?.quizQuestions || []);
+    const [ankiCards, setAnkiCards] = useState(() => savedLocalSession?.ankiCards || []);
     const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
 
     useEffect(() => {
@@ -83,16 +86,14 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
             if (!user) {
                 setAppState('login');
             } else {
-                setAppState(prev => (prev === 'login' ? (savedSession?.appState || 'home') : prev));
+                setAppState(prev => (prev === 'login' ? targetState : prev));
             }
         }
-    }, [user, savedSession?.appState]);
+    }, [user, targetState]);
 
     // Persiste a sessão ativa sincronizada em localStorage
     useEffect(() => {
-        if (!appState || appState === 'login' || appState === 'home') {
-            localStorage.removeItem('aws_study_active_session');
-        } else {
+        if (appState && appState !== 'login' && appState !== 'home') {
             localStorage.setItem('aws_study_active_session', JSON.stringify({
                 appState,
                 currentTrail,
@@ -106,14 +107,14 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
     // Restaura o estado da navegação e o conteúdo em cache a partir da URL ao recarregar a página (F5)
     useEffect(() => {
         const restoreSessionFromUrl = async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const savedState = urlParams.get('state');
-            const savedTrailId = urlParams.get('trail');
+            const currentUrlParams = new URLSearchParams(window.location.search);
+            const savedState = currentUrlParams.get('state') || targetState;
+            const savedTrailId = currentUrlParams.get('trail') || currentTrail?.id;
 
             if (!savedState || savedState === 'home' || savedState === 'login') return;
 
-            // Se o localStorage já restaurou síncronamente o estudo e a trilha, não faz fetch redundante
-            if (savedSession?.studyContent && savedSession?.currentTrail?.id === savedTrailId) {
+            // Se o conteúdo do estudo já está populado, preserva a sessão
+            if (studyContent && currentTrail?.id === savedTrailId) {
                 return;
             }
 
@@ -147,7 +148,7 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         };
 
         restoreSessionFromUrl();
-    }, [user, savedSession]);
+    }, [user, targetState, studyContent, currentTrail?.id]);
 
     // Sincroniza a localização da página e a trilha atual na URL (ex: ?state=studying_material&trail=level-s3)
     useEffect(() => {
