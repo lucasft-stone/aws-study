@@ -4,7 +4,9 @@ import {
     fetchAllUsers, 
     updateAdminUserSettings, 
     fetchUserAllData, 
-    checkIsAdmin 
+    checkIsAdmin,
+    deleteUserByAdmin,
+    deleteUserTrailByAdmin
 } from '../services/firebaseService';
 
 export default function AdminPanel({ user, handleReturnHome }) {
@@ -21,10 +23,15 @@ export default function AdminPanel({ user, handleReturnHome }) {
 
     // Form de edição do usuário selecionado
     const [editForm, setEditForm] = useState({
+        displayName: '',
+        email: '',
         isBlocked: false,
         isUnlimited: false,
         xp: 0,
         hearts: 5,
+        customMaxHearts: 5,
+        customMaxDailyRefreshes: 10,
+        customMaxDailyTrailCreations: 1,
         dailyRefreshes: 0,
         dailyTrailCreations: 0
     });
@@ -69,13 +76,15 @@ export default function AdminPanel({ user, handleReturnHome }) {
     const openUserModal = async (u) => {
         setSelectedUser(u);
         setEditForm({
+            displayName: u.displayName || '',
+            email: u.email || '',
             isBlocked: u.isBlocked || false,
             isUnlimited: u.isUnlimited || false,
             xp: u.xp || 0,
             hearts: u.hearts ?? 5,
             customMaxHearts: u.customMaxHearts ?? 5,
             customMaxDailyRefreshes: u.customMaxDailyRefreshes ?? 10,
-            customMaxTrailCreations: u.customMaxTrailCreations ?? 1,
+            customMaxDailyTrailCreations: u.customMaxTrailCreations ?? 1,
             dailyRefreshes: u.dailyRefreshes || 0,
             dailyTrailCreations: u.dailyTrailCreations || 0
         });
@@ -116,6 +125,42 @@ export default function AdminPanel({ user, handleReturnHome }) {
         }
     };
 
+    const handleDeleteUser = async (u) => {
+        const nameToDisplay = u.displayName || u.email || u.uid;
+        const confirmDelete = confirm(`Tem certeza que deseja EXCLUIR PERMANENTEMENTE o usuário "${nameToDisplay}" e todas as suas trilhas? Esta ação não poderá ser desfeita.`);
+        if (confirmDelete) {
+            try {
+                await deleteUserByAdmin(u.uid);
+                setUsersList(prev => prev.filter(item => item.uid !== u.uid));
+                if (selectedUser?.uid === u.uid) {
+                    setSelectedUser(null);
+                }
+                setActionMessage(`Usuário "${nameToDisplay}" foi excluído permanentemente.`);
+                setTimeout(() => setActionMessage(''), 3000);
+            } catch (err) {
+                setActionMessage("Erro ao excluir usuário: " + err.message);
+            }
+        }
+    };
+
+    const handleDeleteUserTrail = async (trail) => {
+        if (!selectedUser) return;
+        const confirmDelete = confirm(`Tem certeza que deseja APAGAR a trilha "${trail.title}" do usuário ${selectedUser.displayName || selectedUser.uid}?`);
+        if (confirmDelete) {
+            try {
+                await deleteUserTrailByAdmin(selectedUser.uid, trail.id);
+                setUserDataModal(prev => ({
+                    ...prev,
+                    trails: prev.trails.filter(t => t.id !== trail.id)
+                }));
+                setActionMessage(`Trilha "${trail.title}" excluída com sucesso!`);
+                setTimeout(() => setActionMessage(''), 3000);
+            } catch (err) {
+                setActionMessage("Erro ao excluir trilha: " + err.message);
+            }
+        }
+    };
+
     const handleSaveUserForm = async (e) => {
         e.preventDefault();
         if (!selectedUser) return;
@@ -123,7 +168,7 @@ export default function AdminPanel({ user, handleReturnHome }) {
         try {
             await updateAdminUserSettings(selectedUser.uid, editForm);
             setUsersList(prev => prev.map(item => item.uid === selectedUser.uid ? { ...item, ...editForm } : item));
-            setActionMessage(`Configurações de ${selectedUser.displayName || selectedUser.uid} salvas com sucesso!`);
+            setActionMessage(`Configurações de ${editForm.displayName || selectedUser.uid} salvas com sucesso!`);
             setTimeout(() => setActionMessage(''), 3000);
             setSelectedUser(null);
         } catch (err) {
@@ -153,7 +198,7 @@ export default function AdminPanel({ user, handleReturnHome }) {
                         <span>👑 Painel de Administração</span>
                     </h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                        Gerencie usuários, limites de uso, bloqueios e inspecione materiais de estudo.
+                        Gerencie usuários, e-mails, nomes, limites, exclusões e inspecione trilhas de estudo.
                     </p>
                 </div>
                 <button
@@ -208,7 +253,7 @@ export default function AdminPanel({ user, handleReturnHome }) {
             <div className="w-full flex flex-col sm:flex-row gap-3 mb-6">
                 <input
                     type="text"
-                    placeholder="Pesquisar por nome, email ou UID..."
+                    placeholder="Pesquisar por nome, e-mail ou UID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="flex-grow p-3 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
@@ -217,7 +262,7 @@ export default function AdminPanel({ user, handleReturnHome }) {
                     onClick={loadUsers}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
                 >
-                    🔄 Recarregar Dados
+                    🔄 Recarregar Lista
                 </button>
             </div>
 
@@ -234,7 +279,7 @@ export default function AdminPanel({ user, handleReturnHome }) {
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50 dark:bg-gray-900/80 text-slate-400 font-bold uppercase tracking-wider text-xs border-b border-slate-100 dark:border-gray-700">
                                 <tr>
-                                    <th className="p-4">Usuário</th>
+                                    <th className="p-4">Usuário / E-mail</th>
                                     <th className="p-4">XP / Vidas</th>
                                     <th className="p-4">Uso Hoje</th>
                                     <th className="p-4">Status</th>
@@ -246,21 +291,27 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                     const isAdmin = checkIsAdmin(u);
                                     const isUnl = u.isUnlimited || isAdmin;
                                     const isBlk = u.isBlocked;
+                                    const displayName = u.displayName || (isAdmin ? 'Administrador' : 'Sem Nome Cadastrado');
+                                    const emailDisplay = u.email || (u.uid === 'fy9fGuWe5Kh4veCFkRbp6pN9MyK2' ? 'felps.st2020@gmail.com' : 'E-mail não sincronizado');
 
                                     return (
                                         <tr key={u.uid} className="hover:bg-slate-50/50 dark:hover:bg-gray-700/30 transition-colors">
                                             <td className="p-4">
                                                 <div className="flex items-center gap-3">
                                                     {u.photoURL ? (
-                                                        <img src={u.photoURL} alt="" className="w-9 h-9 rounded-full" />
+                                                        <img src={u.photoURL} alt="" className="w-10 h-10 rounded-full" />
                                                     ) : (
-                                                        <div className="w-9 h-9 rounded-full bg-indigo-500 text-white font-bold flex items-center justify-center">
-                                                            {(u.displayName || 'U')[0]}
+                                                        <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow">
+                                                            {displayName[0].toUpperCase()}
                                                         </div>
                                                     )}
                                                     <div>
-                                                        <p className="font-bold text-slate-800 dark:text-slate-100">{u.displayName || "Sem Nome"}</p>
-                                                        <p className="text-xs text-slate-400">{u.email || u.uid}</p>
+                                                        <p className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                                                            <span>{displayName}</span>
+                                                            {isAdmin && <span className="text-xs text-amber-500 font-normal" title="Administrador Raiz">👑</span>}
+                                                        </p>
+                                                        <p className="text-xs font-semibold text-indigo-500 dark:text-indigo-400">{emailDisplay}</p>
+                                                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">UID: {u.uid}</p>
                                                     </div>
                                                 </div>
                                             </td>
@@ -268,12 +319,12 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                             <td className="p-4 font-medium">
                                                 <span className="text-indigo-600 dark:text-indigo-400 font-bold">{u.xp || 0} XP</span>
                                                 <span className="text-slate-400 mx-1">•</span>
-                                                <span className="text-red-500 font-bold">❤️ {u.hearts ?? 5}</span>
+                                                <span className="text-red-500 font-bold">❤️ {u.hearts ?? (u.customMaxHearts || 5)}</span>
                                             </td>
 
                                             <td className="p-4 text-xs text-slate-500">
-                                                <span>Refreshes: {u.dailyRefreshes || 0}</span><br />
-                                                <span>Trilhas: {u.dailyTrailCreations || 0}</span>
+                                                <span>Refreshes: {u.dailyRefreshes || 0} / {isUnl ? '∞' : (u.customMaxDailyRefreshes || 10)}</span><br />
+                                                <span>Trilhas: {u.dailyTrailCreations || 0} / {isUnl ? '∞' : (u.customMaxDailyTrailCreations || 1)}</span>
                                             </td>
 
                                             <td className="p-4">
@@ -296,7 +347,7 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                             </td>
 
                                             <td className="p-4 text-right">
-                                                <div className="flex justify-end gap-2">
+                                                <div className="flex justify-end gap-1.5">
                                                     <button
                                                         onClick={() => handleToggleUnlimited(u)}
                                                         title={isUnl ? "Remover Ilimitado" : "Conceder Ilimitado"}
@@ -310,14 +361,22 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                                         title={isBlk ? "Desbloquear Usuário" : "Bloquear Usuário"}
                                                         className={`p-2 rounded-xl text-xs font-bold transition-colors ${isBlk ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-gray-700 dark:text-slate-200'}`}
                                                     >
-                                                        {isBlk ? '🔓 Desbloquear' : '🔒 Bloquear'}
+                                                        {isBlk ? '🔓' : '🔒'}
                                                     </button>
 
                                                     <button
                                                         onClick={() => openUserModal(u)}
                                                         className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-2 px-3 rounded-xl text-xs transition-colors"
                                                     >
-                                                        🔍 Detalhes
+                                                        ⚙️ Editar
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => handleDeleteUser(u)}
+                                                        title="Excluir Usuário"
+                                                        className="bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/70 font-bold p-2 rounded-xl text-xs transition-colors"
+                                                    >
+                                                        🗑️
                                                     </button>
                                                 </div>
                                             </td>
@@ -341,14 +400,14 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                     <img src={selectedUser.photoURL} alt="" className="w-12 h-12 rounded-full" />
                                 ) : (
                                     <div className="w-12 h-12 rounded-full bg-indigo-600 text-white font-bold text-lg flex items-center justify-center">
-                                        {(selectedUser.displayName || 'U')[0]}
+                                        {(editForm.displayName || selectedUser.displayName || 'U')[0]}
                                     </div>
                                 )}
                                 <div>
                                     <h3 className="text-xl font-bold text-slate-800 dark:text-white">
-                                        {selectedUser.displayName || "Usuário"}
+                                        {editForm.displayName || selectedUser.displayName || "Usuário"}
                                     </h3>
-                                    <p className="text-xs text-slate-400">{selectedUser.email || selectedUser.uid}</p>
+                                    <p className="text-xs font-semibold text-indigo-500">{editForm.email || selectedUser.email || selectedUser.uid}</p>
                                 </div>
                             </div>
                             <button
@@ -365,13 +424,13 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                 onClick={() => setActiveTab('settings')}
                                 className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'settings' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
                             >
-                                ⚙️ Configurações & Limites
+                                ⚙️ Editar Dados & Limites
                             </button>
                             <button
                                 onClick={() => setActiveTab('materials')}
                                 className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'materials' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
                             >
-                                📚 Materiais & Trilhas ({userDataModal.trails.length})
+                                📚 Trilhas & Materiais ({userDataModal.trails.length})
                             </button>
                         </div>
 
@@ -379,6 +438,31 @@ export default function AdminPanel({ user, handleReturnHome }) {
                         <div className="p-6 overflow-y-auto flex-grow">
                             {activeTab === 'settings' ? (
                                 <form onSubmit={handleSaveUserForm} className="space-y-5">
+                                    {/* Edição de Nome e Email */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Nome / Apelido</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Digite o nome do usuário..."
+                                                value={editForm.displayName}
+                                                onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
+                                                className="w-full p-3 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl font-bold"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-bold uppercase text-slate-400 mb-1">E-mail do Usuário</label>
+                                            <input
+                                                type="email"
+                                                placeholder="Digite o e-mail do usuário..."
+                                                value={editForm.email}
+                                                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                                className="w-full p-3 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl font-bold"
+                                            />
+                                        </div>
+                                    </div>
+
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="p-4 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-700 flex items-center justify-between">
                                             <div>
@@ -418,7 +502,7 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                             />
                                         </div>
 
-                                         <div>
+                                        <div>
                                             <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Corações Atuais</label>
                                             <input
                                                 type="number"
@@ -465,34 +549,21 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Atualizações Efetuadas Hoje</label>
-                                            <input
-                                                type="number"
-                                                value={editForm.dailyRefreshes}
-                                                onChange={(e) => setEditForm({ ...editForm, dailyRefreshes: parseInt(e.target.value) || 0 })}
-                                                className="w-full p-3 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Trilhas Criadas Hoje</label>
-                                            <input
-                                                type="number"
-                                                value={editForm.dailyTrailCreations}
-                                                onChange={(e) => setEditForm({ ...editForm, dailyTrailCreations: parseInt(e.target.value) || 0 })}
-                                                className="w-full p-3 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl"
-                                            />
-                                        </div>
+                                    <div className="flex gap-3 pt-2">
+                                        <button
+                                            type="submit"
+                                            className="flex-grow bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-2xl shadow-lg transition-colors"
+                                        >
+                                            Salvar Alterações
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeleteUser(selectedUser)}
+                                            className="bg-red-500 hover:bg-red-600 text-white font-bold px-5 rounded-2xl transition-colors text-sm flex items-center justify-center gap-1.5"
+                                        >
+                                            <span>🗑️ Excluir Usuário</span>
+                                        </button>
                                     </div>
-
-                                    <button
-                                        type="submit"
-                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-2xl shadow-lg transition-colors mt-4"
-                                    >
-                                        Salvar Configurações do Usuário
-                                    </button>
                                 </form>
                             ) : loadingDetails ? (
                                 <LoadingScreen text="Carregando materiais do usuário..." />
@@ -511,9 +582,17 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                         ) : (
                                             <div className="space-y-3">
                                                 {userDataModal.trails.map(t => (
-                                                    <div key={t.id} className="p-4 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-700">
-                                                        <h5 className="font-bold text-slate-800 dark:text-slate-100">{t.title}</h5>
-                                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{t.content}</p>
+                                                    <div key={t.id} className="p-4 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-700 flex items-center justify-between gap-4">
+                                                        <div className="flex-grow">
+                                                            <h5 className="font-bold text-slate-800 dark:text-slate-100">{t.title}</h5>
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{t.content}</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleDeleteUserTrail(t)}
+                                                            className="bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/80 font-bold text-xs py-2 px-3 rounded-xl transition-colors flex-shrink-0"
+                                                        >
+                                                            🗑️ Apagar Trilha
+                                                        </button>
                                                     </div>
                                                 ))}
                                             </div>

@@ -283,6 +283,36 @@ export const updateAdminUserSettings = async (targetUid, settings) => {
 };
 
 /**
+ * [ADMIN] Exclui permanentemente um usuário e todos os seus dados e subcoleções do Firestore.
+ */
+export const deleteUserByAdmin = async (targetUid) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !targetUid) return;
+
+    // 1. Exclui todas as trilhas do usuário
+    const trailsSnap = await getDocs(collection(db, 'users', targetUid, 'customTrails'));
+    const deleteTrails = trailsSnap.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(deleteTrails);
+
+    // 2. Exclui todo o progresso do usuário
+    const progressSnap = await getDocs(collection(db, 'users', targetUid, 'studyLevelProgress'));
+    const deleteProgress = progressSnap.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(deleteProgress);
+
+    // 3. Exclui o documento principal do usuário
+    const userRef = doc(db, 'users', targetUid);
+    await deleteDoc(userRef);
+};
+
+/**
+ * [ADMIN] Exclui uma trilha específica de qualquer usuário.
+ */
+export const deleteUserTrailByAdmin = async (targetUid, trailId) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !targetUid || !trailId) return;
+    const trailRef = doc(db, 'users', targetUid, 'customTrails', trailId);
+    await deleteDoc(trailRef);
+};
+
+/**
  * [ADMIN] Busca todas as trilhas e materiais gerados para um usuário específico.
  */
 export const fetchUserAllData = async (targetUid) => {
