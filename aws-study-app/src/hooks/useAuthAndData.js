@@ -114,7 +114,7 @@ export function useAuthAndData() {
     };
 
     const editTrail = async (trailId, title, content, topic) => {
-        const updatedData = { title, content, topic, cachedStudy: null, cachedQuiz: null, cachedAnki: null };
+        const updatedData = { title, content, topic, cachedStudy: content, cachedQuiz: null, cachedAnki: null };
         await updateCustomTrail(user?.uid, trailId, updatedData);
         setCustomTrails(prev => prev.map(t => t.id === trailId ? { ...t, ...updatedData } : t));
     };
