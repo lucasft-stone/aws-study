@@ -118,22 +118,36 @@ export default function App() {
     const handleOpenEditTrail = (trail) => {
         setEditingTrail(trail);
         setNewTrailTitle(trail.title || '');
-        setNewTrailContent(trail.content || '');
+        setNewTrailContent(trail.content || trail.cachedStudy || '');
         setNewTrailTopic(trail.topic || 'Minhas Trilhas Personalizadas');
         setAppState('create_trail');
     };
 
     const handleCreateTrailSubmit = async () => {
-        if (!newTrailTitle || !newTrailTitle.trim() || !newTrailContent || !newTrailContent.trim()) {
-            setSessionError("Por favor, preencha o título e o conteúdo da trilha.");
+        if (!newTrailTitle || !newTrailTitle.trim()) {
+            setSessionError("Por favor, preencha o título da trilha.");
             return;
         }
 
         setSessionError('');
         try {
+            const contentToSave = (newTrailContent && newTrailContent.trim())
+                ? newTrailContent.trim()
+                : 'Material de Estudo sobre ' + newTrailTitle.trim();
+
             if (editingTrail) {
                 // Modo Edição & Regeração
-                await editTrail(editingTrail.id, newTrailTitle, newTrailContent, newTrailTopic || 'Minhas Trilhas Personalizadas');
+                if (editingTrail.isGlobal) {
+                    await updateGlobalTrail(editingTrail.id, {
+                        title: newTrailTitle.trim(),
+                        topic: newTrailTopic || 'Matemática',
+                        content: contentToSave,
+                        cachedStudy: contentToSave,
+                        updatedAt: new Date()
+                    });
+                } else {
+                    await editTrail(editingTrail.id, newTrailTitle.trim(), contentToSave, newTrailTopic || 'Minhas Trilhas Personalizadas');
+                }
                 setEditingTrail(null);
             } else {
                 // Modo Criação
@@ -146,7 +160,7 @@ export default function App() {
                     return;
                 }
 
-                await addTrail(newTrailTitle, newTrailContent, newTrailTopic || 'Minhas Trilhas Personalizadas');
+                await addTrail(newTrailTitle.trim(), contentToSave, newTrailTopic || 'Minhas Trilhas Personalizadas');
             }
 
             setNewTrailTitle('');
@@ -157,6 +171,7 @@ export default function App() {
         } catch (err) {
             console.error("Erro ao salvar trilha:", err);
             setSessionError("Erro ao salvar trilha: " + err.message);
+            alert("Erro ao salvar trilha: " + err.message);
         }
     };
 
@@ -221,15 +236,20 @@ export default function App() {
 
     const currentError = sessionError || authError;
 
-    const handleUpdateStudyContent = (newText) => {
+    const handleUpdateStudyContent = async (newText) => {
         setStudyContent(newText);
         if (currentTrail) {
-            const isCustom = !currentTrail.id?.startsWith('level-');
-            if (isCustom && editTrail) {
-                editTrail(currentTrail.id, currentTrail.title, newText, currentTrail.topic);
-            } else if (user?.uid) {
-                updateProgressCache(user.uid, currentTrail.id, 'cachedStudy', newText);
+            if (currentTrail.isGlobal) {
+                await updateGlobalTrail(currentTrail.id, { cachedStudy: newText, updatedAt: new Date() });
+            } else {
+                const isCustom = !currentTrail.id?.startsWith('level-');
+                if (isCustom && editTrail) {
+                    await editTrail(currentTrail.id, currentTrail.title, newText, currentTrail.topic);
+                } else if (user?.uid) {
+                    await updateProgressCache(user.uid, currentTrail.id, 'cachedStudy', newText, currentTrail.isGlobal);
+                }
             }
+            if (reloadTrails) await reloadTrails();
         }
     };
 

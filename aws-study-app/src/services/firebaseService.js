@@ -244,12 +244,12 @@ export const updateCustomTrail = async (uid, trailId, updatedData) => {
 /**
  * Salva no Firestore o cache de conteúdo gerado (material de estudo, quiz ou anki).
  */
-export const updateProgressCache = async (uid, trailId, cacheKey, content) => {
+export const updateProgressCache = async (uid, trailId, cacheKey, content, isGlobal = false) => {
     if (!ENABLE_FIREBASE_AUTH || !db) return;
 
-    if (trailId && (trailId.startsWith('global-') || cacheKey.startsWith('global_'))) {
+    if (isGlobal || (trailId && (trailId.startsWith('global-') || cacheKey.startsWith('global_')))) {
         const trailRef = doc(db, 'globalTrails', trailId);
-        await setDoc(trailRef, { [cacheKey]: content }, { merge: true });
+        await setDoc(trailRef, { [cacheKey]: content, updatedAt: new Date() }, { merge: true });
         return;
     }
 

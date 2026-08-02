@@ -881,7 +881,7 @@ export default function StudyMaterial({
                                 onClick={async () => {
                                     if (user?.uid && currentTrail?.id) {
                                         try {
-                                            await updateProgressCache(user.uid, currentTrail.id, 'cachedStudy', editableText);
+                                            await updateProgressCache(user.uid, currentTrail.id, 'cachedStudy', editableText, currentTrail?.isGlobal);
                                         } catch (e) {
                                             console.warn('Erro ao salvar no Firestore:', e);
                                         }
