@@ -218,10 +218,15 @@ export default function StudyMaterial({
                 .replace(/\\n/g, '\n')
                 .trim();
 
-            let lines = text.split('\n');
+            let lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+            // Remove a palavra "mermaid" ou "mermaid-js" se estiver isolada na primeira linha
+            if (lines.length > 0 && /^mermaid(-js)?$/i.test(lines[0])) {
+                lines.shift();
+            }
+
             const firstKeywordIdx = lines.findIndex(line => {
-                const trimmed = line.trim();
-                return mermaidKeywords.some(kw => trimmed.startsWith(kw));
+                return mermaidKeywords.some(kw => line.toLowerCase().startsWith(kw.toLowerCase()));
             });
 
             if (firstKeywordIdx !== -1) {
@@ -241,13 +246,15 @@ export default function StudyMaterial({
 
                 const codeEl = pre.querySelector('code') || pre;
                 const rawCode = (codeEl.innerText || codeEl.textContent || '').trim();
-                const cleanCode = cleanMermaidSyntax(rawCode);
+                const classList = Array.from(codeEl.classList || []).concat(Array.from(pre.classList || []));
+                const hasMermaidHeader = classList.some(c => c.includes('mermaid')) || /^mermaid/i.test(rawCode);
 
+                const cleanCode = cleanMermaidSyntax(rawCode);
                 if (!cleanCode) continue;
 
-                // Verifica se a primeira linha limpa começa com qualquer palavra-chave do Mermaid
+                // Verifica se tem classe mermaid, header mermaid ou se a primeira linha começa com palavra-chave
                 const firstLine = cleanCode.split('\n')[0].trim();
-                const isMermaidDiagram = mermaidKeywords.some(kw => firstLine.toLowerCase().startsWith(kw.toLowerCase()));
+                const isMermaidDiagram = hasMermaidHeader || mermaidKeywords.some(kw => firstLine.toLowerCase().startsWith(kw.toLowerCase()));
 
                 if (isMermaidDiagram) {
                     pre.dataset.mermaidRendered = 'true';
