@@ -388,6 +388,7 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         currentTrail,
         setCurrentTrail,
         studyContent,
+        setStudyContent,
         quizQuestions,
         selectedModel,
         setSelectedModel,

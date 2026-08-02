@@ -3,7 +3,7 @@ import { marked } from 'marked';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
-import { checkIsAdmin } from '../services/firebaseService';
+import { checkIsAdmin, updateProgressCache } from '../services/firebaseService';
 
 // Inicialização limpa do Mermaid para gráficos e diagramas sem banners ruidosos de erro
 mermaid.initialize({
@@ -26,7 +26,8 @@ export default function StudyMaterial({
     isExpandingStudy = false,
     setAppState,
     handleFinishStudyAndStartQuiz,
-    MAX_DAILY_REFRESHES
+    MAX_DAILY_REFRESHES,
+    updateStudyContent
 }) {
     const isRoot = checkIsAdmin(user);
     const refreshLimitReached = userData.dailyRefreshes >= MAX_DAILY_REFRESHES && !isRoot;
@@ -34,6 +35,8 @@ export default function StudyMaterial({
     // Controle de Tamanho de Fonte para leitura confortável (0: P, 1: M, 2: G, 3: GG)
     const [fontSizeLevel, setFontSizeLevel] = useState(1);
     const [copiedToast, setCopiedToast] = useState(false);
+    const [isEditingFullMaterial, setIsEditingFullMaterial] = useState(false);
+    const [editableText, setEditableText] = useState(studyContent || '');
     const contentRef = useRef(null);
 
     const fontClasses = ['text-sm', 'text-base', 'text-lg', 'text-xl'];
@@ -566,8 +569,14 @@ export default function StudyMaterial({
             });
         };
 
-        renderContentElements();
-    }, [formattedContent]);
+        const timer1 = setTimeout(renderContentElements, 20);
+        const timer2 = setTimeout(renderContentElements, 150);
+
+        return () => {
+            clearTimeout(timer1);
+            clearTimeout(timer2);
+        };
+    }, [formattedContent, studyContent]);
 
     return (
         <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 flex flex-col h-[88vh] border border-slate-100 dark:border-gray-700 animate-fade-in relative">
@@ -618,6 +627,18 @@ export default function StudyMaterial({
                             A+
                         </button>
                     </div>
+
+                    {/* Botão de Modo Edição Completa do Material */}
+                    <button
+                        onClick={() => {
+                            setEditableText(studyContent || '');
+                            setIsEditingFullMaterial(true);
+                        }}
+                        title="Editar o material completo, fórmulas e gráficos com visualização ao vivo em tempo real"
+                        className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs py-2 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-1 shadow-sm"
+                    >
+                        ✏️ Editar Todo o Material
+                    </button>
 
                     {/* Botão de Continuar e Aprofundar Estudo */}
                     {expandStudyMaterial && (
@@ -674,6 +695,16 @@ export default function StudyMaterial({
                 </button>
                 
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                    <button
+                        onClick={() => {
+                            setEditableText(studyContent || '');
+                            setIsEditingFullMaterial(true);
+                        }}
+                        className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold py-3 px-4 rounded-2xl transition-all text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                        <span>✏️ Editar Todo o Material</span>
+                    </button>
+
                     {expandStudyMaterial && (
                         <button
                             onClick={() => expandStudyMaterial(currentTrail)}
@@ -696,6 +727,152 @@ export default function StudyMaterial({
                     </button>
                 </div>
             </div>
+
+            {/* Modal Overlay de Edição Completa do Material com Live Preview */}
+            {isEditingFullMaterial && (
+                <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col p-4 sm:p-6 animate-fade-in">
+                    {/* Cabeçalho do Editor Completo */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 mb-4 border-b border-slate-800 flex-shrink-0">
+                        <div>
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400 bg-amber-950/80 px-3 py-1 rounded-full border border-amber-800/60">
+                                ✏️ Modo Edição Completa & Live Preview
+                            </span>
+                            <h2 className="text-xl font-extrabold text-white mt-1">
+                                {currentTrail?.title}
+                            </h2>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={async () => {
+                                    if (user?.uid && currentTrail?.id) {
+                                        try {
+                                            await updateProgressCache(user.uid, currentTrail.id, 'cachedStudy', editableText);
+                                        } catch (e) {
+                                            console.warn('Erro ao salvar no Firestore:', e);
+                                        }
+                                    }
+                                    if (updateStudyContent) {
+                                        updateStudyContent(editableText);
+                                    }
+                                    setIsEditingFullMaterial(false);
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-xl text-xs transition-all shadow-lg flex items-center gap-1.5"
+                            >
+                                💾 Salvar Alterações no Estudo
+                            </button>
+                            <button
+                                onClick={() => setIsEditingFullMaterial(false)}
+                                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-xl text-xs transition-colors"
+                            >
+                                ❌ Cancelar
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Layout Split: Esquerda Editor, Direita Live Preview */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-grow overflow-hidden">
+                        {/* Painel Esquerdo: Textarea de Edição Completa */}
+                        <div className="flex flex-col bg-slate-900 rounded-2xl p-4 border border-slate-800 overflow-hidden">
+                            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs text-slate-400">
+                                <span className="font-bold text-amber-400">📝 Código Markdown / Math / Mermaid</span>
+                                <span className="text-[10px] text-slate-500 font-mono">{editableText.length} caracteres</span>
+                            </div>
+
+                            {/* Barra de Ferramentas de Inserção Rápida */}
+                            <div className="flex flex-wrap gap-1.5 mb-2 pb-2 border-b border-slate-800/80">
+                                <button
+                                    onClick={() => setEditableText(prev => prev + '\n\n```mermaid\ngraph TD\nA["Início"] --> B["Resultado"]\n```\n')}
+                                    className="text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 px-2 py-1 rounded-lg hover:bg-indigo-900"
+                                >
+                                    + Diagrama Mermaid
+                                </button>
+                                <button
+                                    onClick={() => setEditableText(prev => prev + '\n\n$$ \\sum_{i=1}^{n} a_i $$\n')}
+                                    className="text-[10px] font-bold bg-purple-950 text-purple-300 border border-purple-800 px-2 py-1 rounded-lg hover:bg-purple-900"
+                                >
+                                    + Fórmula LaTeX
+                                </button>
+                                <button
+                                    onClick={() => setEditableText(prev => prev + '\n\n```python\ndef lambda_handler(event, context):\n    return {"status": 200}\n```\n')}
+                                    className="text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-1 rounded-lg hover:bg-emerald-900"
+                                >
+                                    + Bloco Python
+                                </button>
+                                <button
+                                    onClick={() => setEditableText(prev => prev + '\n\n### Novo Tópico de Estudo\n')}
+                                    className="text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800 px-2 py-1 rounded-lg hover:bg-amber-900"
+                                >
+                                    + Título ###
+                                </button>
+                            </div>
+
+                            <textarea
+                                value={editableText}
+                                onChange={(e) => setEditableText(e.target.value)}
+                                className="w-full flex-grow p-4 bg-slate-950 font-mono text-xs text-slate-100 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500 resize-none custom-scrollbar leading-relaxed"
+                            />
+                        </div>
+
+                        {/* Painel Direito: Visualização em Tempo Real (Live Preview) */}
+                        <div className="flex flex-col bg-slate-900 rounded-2xl p-4 border border-slate-800 overflow-hidden">
+                            <div className="pb-2 mb-2 border-b border-slate-800 text-xs font-bold text-emerald-400">
+                                👁️ Visualização em Tempo Real (Live Preview)
+                            </div>
+                            
+                            <LiveMaterialPreview
+                                text={editableText}
+                                fixAndFormatAllJsonInMarkdown={fixAndFormatAllJsonInMarkdown}
+                                renderLatexMathFormulas={renderLatexMathFormulas}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
+    );
+}
+
+// Subcomponente de Visualização em Tempo Real (Live Preview)
+function LiveMaterialPreview({ text, fixAndFormatAllJsonInMarkdown, renderLatexMathFormulas }) {
+    const previewRef = useRef(null);
+    const processedJson = fixAndFormatAllJsonInMarkdown(text || '');
+    const processedMath = renderLatexMathFormulas(processedJson);
+    const html = marked.parse(processedMath, { breaks: true, gfm: true });
+
+    useEffect(() => {
+        if (!previewRef.current) return;
+        const timer = setTimeout(() => {
+            const placeholders = Array.from(previewRef.current.querySelectorAll('.mermaid-diagram-placeholder'));
+            placeholders.forEach(async (el, idx) => {
+                if (el.dataset.mermaidRendered) return;
+                el.dataset.mermaidRendered = 'true';
+                const rawEncoded = el.dataset.mermaidCode || '';
+                const code = decodeURIComponent(rawEncoded);
+                try {
+                    const uniqueId = `mermaid_live_prev_${Date.now()}_${idx}`;
+                    const { svg } = await mermaid.render(uniqueId, code);
+                    el.innerHTML = `
+                        <div class="w-full flex flex-col items-center gap-2 max-w-full overflow-hidden">
+                            <div class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/60 mb-1">
+                                📊 Gráfico / Diagrama Visual
+                            </div>
+                            <div class="w-full flex justify-center items-center overflow-x-auto max-w-full py-2">${svg}</div>
+                        </div>
+                    `;
+                } catch {
+                    el.innerHTML = `<pre class="text-xs text-slate-200 font-mono p-3 bg-slate-950 rounded-xl"><code>${code}</code></pre>`;
+                }
+            });
+        }, 50);
+        return () => clearTimeout(timer);
+    }, [html, text]);
+
+    return (
+        <div
+            ref={previewRef}
+            className="markdown-content flex-grow overflow-y-auto pr-3 custom-scrollbar text-slate-100 text-sm leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: html }}
+        />
     );
 }

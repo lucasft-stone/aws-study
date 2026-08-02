@@ -64,6 +64,7 @@ export default function App() {
         setAppState,
         currentTrail,
         studyContent,
+        setStudyContent,
         quizQuestions,
         selectedModel,
         setSelectedModel,
@@ -294,6 +295,7 @@ export default function App() {
                         handleFinishStudyAndStartQuiz={handleFinishStudyAndStartQuiz}
                         ROOT_USER_UID={ROOT_USER_UID}
                         MAX_DAILY_REFRESHES={MAX_DAILY_REFRESHES}
+                        updateStudyContent={setStudyContent}
                     />
                 );
 
