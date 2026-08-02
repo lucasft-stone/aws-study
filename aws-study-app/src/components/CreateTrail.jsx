@@ -14,6 +14,16 @@ export default function CreateTrail({
 }) {
     const [customTopicInput, setCustomTopicInput] = useState('');
     const [isCreatingCustomTopic, setIsCreatingCustomTopic] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    const onSubmit = async () => {
+        setIsSaving(true);
+        try {
+            await handleCreateTrail();
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const handleTopicSelectChange = (e) => {
         const val = e.target.value;
@@ -103,10 +113,17 @@ export default function CreateTrail({
             </div>
 
             <button
-                onClick={handleCreateTrail}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-4 rounded-2xl shadow-lg transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                onClick={onSubmit}
+                disabled={isSaving}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-4 rounded-2xl shadow-lg transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
             >
-                {isEditing ? '💾 Salvar Alterações & Regerar Materiais' : '🚀 Salvar Trilha no Tópico'}
+                {isSaving ? (
+                    <span className="flex items-center justify-center gap-2 animate-pulse">
+                        ⚡ {isEditing ? 'Salvando Alterações...' : 'Salvando Trilha no Tópico...'}
+                    </span>
+                ) : (
+                    <span>{isEditing ? '💾 Salvar Alterações & Regerar Materiais' : '🚀 Salvar Trilha no Tópico'}</span>
+                )}
             </button>
         </div>
     );

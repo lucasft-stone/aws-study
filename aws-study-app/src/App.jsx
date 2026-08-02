@@ -122,12 +122,11 @@ export default function App() {
     };
 
     const handleCreateTrailSubmit = async () => {
-        if (!newTrailTitle || !newTrailContent) {
+        if (!newTrailTitle || !newTrailTitle.trim() || !newTrailContent || !newTrailContent.trim()) {
             setSessionError("Por favor, preencha o título e o conteúdo da trilha.");
             return;
         }
 
-        setAppState('loading');
         setSessionError('');
         try {
             if (editingTrail) {
@@ -142,7 +141,6 @@ export default function App() {
                 const limitReached = (userData?.dailyTrailCreations || 0) >= maxTrailsAllowed;
                 if (limitReached && !isUnlimitedUser) {
                     setSessionError(`Você atingiu o limite de ${maxTrailsAllowed} nova(s) trilha(s) por dia.`);
-                    setAppState('create_trail');
                     return;
                 }
 
@@ -152,10 +150,11 @@ export default function App() {
             setNewTrailTitle('');
             setNewTrailContent('');
             setNewTrailTopic('Minhas Trilhas Personalizadas');
+            if (reloadTrails) await reloadTrails();
             setAppState('home');
         } catch (err) {
+            console.error("Erro ao salvar trilha:", err);
             setSessionError("Erro ao salvar trilha: " + err.message);
-            setAppState('create_trail');
         }
     };
 
