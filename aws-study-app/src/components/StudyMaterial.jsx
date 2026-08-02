@@ -259,6 +259,7 @@ export default function StudyMaterial({
         if (!contentRef.current) return;
 
         const cleanMermaidSyntax = (rawText) => {
+            if (!rawText) return '';
             let text = rawText
                 .replace(/&gt;/g, '>')
                 .replace(/&lt;/g, '<')
@@ -266,18 +267,18 @@ export default function StudyMaterial({
                 .replace(/\\n/g, '\n')
                 .trim();
 
-            // Limpa trecho indesejados no final como "} " ou aspas soltas
             text = text.replace(/["'}\s]+$/g, '').trim();
 
-            let lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+            let lines = text.split('\n').filter(Boolean);
 
             // Remove a palavra "mermaid" ou "mermaid-js" se estiver isolada na primeira linha
-            if (lines.length > 0 && /^mermaid(-js)?$/i.test(lines[0])) {
+            if (lines.length > 0 && /^mermaid(-js)?$/i.test(lines[0].trim())) {
                 lines.shift();
             }
 
             const firstKeywordIdx = lines.findIndex(line => {
-                return mermaidKeywords.some(kw => line.toLowerCase().startsWith(kw.toLowerCase()));
+                const trimmed = line.trim().toLowerCase();
+                return mermaidKeywords.some(kw => trimmed.startsWith(kw.toLowerCase()));
             });
 
             if (firstKeywordIdx !== -1) {
@@ -286,12 +287,31 @@ export default function StudyMaterial({
 
             let code = lines.join('\n').trim();
 
-            // Auto-quoting inteligente para mindmaps: root("(Texto)") -> root["Texto"]
+            // Auto-identação e sanitização avançada de nós para mindmaps
             if (code.toLowerCase().startsWith('mindmap')) {
-                code = code
-                    .replace(/root\s*\(\s*"([^"]+)"\s*\)/gi, 'root["$1"]')
-                    .replace(/\(\s*"([^"]+)"\s*\)/g, '["$1"]')
-                    .replace(/root\s*\(\s*\(([^)]+)\)\s*\)/gi, 'root["$1"]');
+                let mLines = code.split('\n').map(l => l.trimRight()).filter(Boolean);
+                if (mLines.length > 1) {
+                    // Sanitiza o nó raiz do mindmap
+                    mLines[1] = mLines[1].trim()
+                        .replace(/^root\s*\(\s*"([^"]+)"\s*\)$/gi, 'root["$1"]')
+                        .replace(/^root\s*\(\s*([^)]+)\s*\)$/gi, 'root["$1"]')
+                        .replace(/^root\s*\("([^"]+)"\)$/gi, 'root["$1"]');
+
+                    if (mLines[1].startsWith('root') && !mLines[1].includes('[') && !mLines[1].includes('(')) {
+                        const rootVal = mLines[1].replace(/^root\s*/, '').trim();
+                        if (rootVal) mLines[1] = `root["${rootVal}"]`;
+                    }
+
+                    // Se os nós filhos não possuem recuo de espaços, aplica identação automática de 2 espaços
+                    const hasIndent = mLines.slice(2).some(l => l.startsWith(' ') || l.startsWith('\t'));
+                    if (!hasIndent) {
+                        mLines = mLines.map((line, idx) => {
+                            if (idx <= 1) return line.trim();
+                            return '  ' + line.trim();
+                        });
+                    }
+                }
+                code = mLines.join('\n');
             }
 
             // Auto-quoting inteligente de rótulos com caracteres especiais como :, =, <, >, (, )
@@ -435,12 +455,14 @@ export default function StudyMaterial({
                     const editedCode = textarea.value.trim();
                     if (!editedCode) return;
 
+                    const codeToRender = cleanMermaidSyntax(editedCode);
+
                     try {
                         const newId = `mermaid_edited_${Date.now()}`;
-                        const { svg } = await mermaid.render(newId, editedCode);
+                        const { svg } = await mermaid.render(newId, codeToRender);
 
                         container.className = 'mermaid-diagram-placeholder my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center max-w-full overflow-hidden flex justify-center items-center';
-                        container.dataset.mermaidCode = encodeURIComponent(editedCode);
+                        container.dataset.mermaidCode = encodeURIComponent(codeToRender);
                         container.innerHTML = `
                             <div class="w-full flex flex-col items-center gap-2 max-w-full overflow-hidden">
                                 <div class="w-full flex items-center justify-between gap-2 border-b border-indigo-900/60 pb-2 mb-1">
@@ -504,9 +526,9 @@ export default function StudyMaterial({
                                 });
                             };
 
-                            const updatedFullText = replaceNthDiagramInContent(studyContent, diagramIdx, editedCode);
+                            const updatedFullText = replaceNthDiagramInContent(studyContent, diagramIdx, codeToRender);
 
-                            container.dataset.renderedCode = encodeURIComponent(editedCode);
+                            container.dataset.renderedCode = encodeURIComponent(codeToRender);
 
                             if (updateStudyContent) {
                                 updateStudyContent(updatedFullText);
