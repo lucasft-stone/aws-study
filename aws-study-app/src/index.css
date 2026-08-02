@@ -211,3 +211,41 @@
 .dark .markdown-content tr:nth-child(even) {
   background-color: rgba(255, 255, 255, 0.03);
 }
+
+/* Scrollbar Oculta para Barras de Ação Horizontais */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Ajustes Responsivos de Tipografia e Espaçamento para Mobile (ex: S24 Plus) */
+@media (max-width: 640px) {
+  .markdown-content h1 {
+    font-size: 1.35rem;
+    margin-top: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .markdown-content h2 {
+    font-size: 1.2rem;
+    margin-top: 1.25rem;
+    margin-bottom: 0.6rem;
+  }
+  .markdown-content h3 {
+    font-size: 1.05rem;
+    margin-top: 1rem;
+  }
+  .markdown-content p {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin-bottom: 1rem;
+  }
+  .markdown-content pre {
+    padding: 0.85rem;
+    margin-top: 0.75rem;
+    margin-bottom: 1rem;
+    border-radius: 0.75rem;
+  }
+}

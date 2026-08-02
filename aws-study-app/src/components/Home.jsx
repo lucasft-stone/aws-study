@@ -80,48 +80,48 @@ export default function Home({
 
     return (
         <div className="w-full max-w-2xl text-center animate-fade-in">
-            {/* User Info Bar */}
-            <div className="flex justify-between items-center mb-4">
+            {/* User Info Bar Responsiva */}
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
                 <div className="flex items-center gap-2">
                     {user?.photoURL ? (
-                        <img src={user.photoURL} alt={user.displayName || "Usuário"} className="w-10 h-10 rounded-full border border-slate-200" />
+                        <img src={user.photoURL} alt={user.displayName || "Usuário"} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-slate-200" />
                     ) : (
-                        <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-xs sm:text-sm shadow">
                             {(user?.displayName || "U")[0].toUpperCase()}
                         </div>
                     )}
-                    <span className="font-bold text-slate-800 dark:text-slate-100">{user?.displayName || "Usuário"}</span>
+                    <span className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100">{user?.displayName || "Usuário"}</span>
                 </div>
 
-                <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
                     {toggleTheme && (
                         <button
                             onClick={toggleTheme}
                             title="Alternar Tema do App (Claro / Escuro / Sistema)"
-                            className="bg-slate-100 dark:bg-gray-700/70 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-700 dark:text-slate-200 font-extrabold text-xs py-1.5 px-2.5 rounded-xl transition-all flex items-center gap-1 shadow-sm border border-slate-200 dark:border-gray-600"
+                            className="bg-slate-100 dark:bg-gray-700/70 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-700 dark:text-slate-200 font-extrabold text-[11px] sm:text-xs py-1 px-2 rounded-xl transition-all flex items-center gap-1 shadow-sm border border-slate-200 dark:border-gray-600"
                         >
                             {themeMode === 'light' ? '☀️ Claro' : themeMode === 'dark' ? '🌙 Escuro' : '💻 Sistema'}
                         </button>
                     )}
-                    <span className="text-base sm:text-lg font-extrabold text-red-500 flex items-center gap-1">❤️ {userData.hearts}</span>
+                    <span className="text-sm sm:text-lg font-extrabold text-red-500 flex items-center gap-1 bg-red-50 dark:bg-red-950/40 px-2 py-0.5 rounded-xl border border-red-100 dark:border-red-900/40">❤️ {userData.hearts}</span>
                     {isRoot && (
                         <button 
                             onClick={() => {
                                 setAppState('admin');
                                 window.history.pushState({}, '', '/admin');
                             }}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-1.5 px-2.5 rounded-xl transition-transform hover:scale-105 shadow"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] sm:text-xs font-bold py-1 px-2 rounded-xl transition-transform hover:scale-105 shadow"
                         >
                             👑 Admin
                         </button>
                     )}
                     {ENABLE_FIREBASE_AUTH && (
-                        <button onClick={handleClearCache} className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">
+                        <button onClick={handleClearCache} className="text-[11px] font-bold text-slate-500 hover:text-indigo-600 transition-colors">
                             Limpar Cache
                         </button>
                     )}
                     {ENABLE_FIREBASE_AUTH && (
-                        <button onClick={signOutUser} className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">
+                        <button onClick={signOutUser} className="text-[11px] font-bold text-slate-500 hover:text-indigo-600 transition-colors">
                             Sair
                         </button>
                     )}

@@ -36,6 +36,7 @@ export default function StudyMaterial({
     const [fontSizeLevel, setFontSizeLevel] = useState(1);
     const [copiedToast, setCopiedToast] = useState(false);
     const [isEditingFullMaterial, setIsEditingFullMaterial] = useState(false);
+    const [mobileEditorTab, setMobileEditorTab] = useState('edit'); // 'edit' ou 'preview' para mobile
     const [editableText, setEditableText] = useState(studyContent || '');
     const contentRef = useRef(null);
 
@@ -609,7 +610,7 @@ export default function StudyMaterial({
     }, [formattedContent, studyContent, currentTrail?.id, updateStudyContent, user?.uid]);
 
     return (
-        <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 flex flex-col h-[88vh] border border-slate-100 dark:border-gray-700 animate-fade-in relative">
+        <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-4 sm:p-8 flex flex-col h-[91vh] sm:h-[88vh] border border-slate-100 dark:border-gray-700 animate-fade-in relative">
             
             {/* Toast de código copiado */}
             {copiedToast && (
@@ -618,41 +619,49 @@ export default function StudyMaterial({
                 </div>
             )}
 
-            {/* Cabeçalho de Leitura */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-4 border-b border-slate-100 dark:border-gray-700 flex-shrink-0">
-                <div>
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-full border border-indigo-100 dark:border-indigo-900/50">
-                        📖 Material de Estudo
+            {/* Cabeçalho de Leitura Responsivo */}
+            <div className="flex flex-col gap-2 sm:gap-3 mb-3 pb-3 border-b border-slate-100 dark:border-gray-700 flex-shrink-0">
+                <div className="flex justify-between items-start gap-2">
+                    <div>
+                        <span className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900/50">
+                            📖 Material de Estudo
+                        </span>
+                        <h1 className="text-lg sm:text-3xl font-extrabold text-slate-800 dark:text-white mt-1 leading-tight">
+                            {currentTrail?.title}
+                        </h1>
+                    </div>
+
+                    {/* Badge de Tempo de Leitura (Desktop) */}
+                    <span className="hidden sm:flex text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-gray-700/60 px-3 py-1.5 rounded-xl items-center gap-1 flex-shrink-0">
+                        ⏱️ ~{readingTimeMinutes} min de leitura
                     </span>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white mt-1.5">
-                        {currentTrail?.title}
-                    </h1>
                 </div>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                    {/* Badge de Tempo de Leitura */}
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-gray-700/60 px-3 py-1.5 rounded-xl flex items-center gap-1">
-                        ⏱️ ~{readingTimeMinutes} min de leitura
+                {/* Barra de Ações Rápidas (Scrollable no Mobile, Flex no Desktop) */}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 w-full flex-shrink-0">
+                    {/* Badge de Tempo de Leitura (Mobile) */}
+                    <span className="sm:hidden text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-gray-700/60 px-2.5 py-1 rounded-xl flex items-center gap-1 whitespace-nowrap flex-shrink-0">
+                        ⏱️ ~{readingTimeMinutes} min
                     </span>
 
                     {/* Controles de Zoom de Fonte */}
-                    <div className="flex items-center bg-slate-100 dark:bg-gray-700/60 p-1 rounded-xl gap-1">
+                    <div className="flex items-center bg-slate-100 dark:bg-gray-700/60 p-0.5 rounded-xl gap-0.5 flex-shrink-0">
                         <button
                             onClick={() => setFontSizeLevel(prev => Math.max(0, prev - 1))}
                             disabled={fontSizeLevel === 0}
                             title="Diminuir tamanho da fonte"
-                            className="w-7 h-7 font-bold text-xs rounded-lg hover:bg-white dark:hover:bg-gray-600 disabled:opacity-30 transition-colors text-slate-700 dark:text-slate-200"
+                            className="w-6 h-6 sm:w-7 sm:h-7 font-bold text-xs rounded-lg hover:bg-white dark:hover:bg-gray-600 disabled:opacity-30 transition-colors text-slate-700 dark:text-slate-200"
                         >
                             A-
                         </button>
-                        <span className="text-[11px] font-bold text-slate-400 px-1">
+                        <span className="text-[10px] font-bold text-slate-400 px-1">
                             {fontSizeLevel === 0 ? 'P' : fontSizeLevel === 1 ? 'M' : fontSizeLevel === 2 ? 'G' : 'GG'}
                         </span>
                         <button
                             onClick={() => setFontSizeLevel(prev => Math.min(3, prev + 1))}
                             disabled={fontSizeLevel === 3}
                             title="Aumentar tamanho da fonte"
-                            className="w-7 h-7 font-bold text-xs rounded-lg hover:bg-white dark:hover:bg-gray-600 disabled:opacity-30 transition-colors text-slate-700 dark:text-slate-200"
+                            className="w-6 h-6 sm:w-7 sm:h-7 font-bold text-xs rounded-lg hover:bg-white dark:hover:bg-gray-600 disabled:opacity-30 transition-colors text-slate-700 dark:text-slate-200"
                         >
                             A+
                         </button>
@@ -665,9 +674,9 @@ export default function StudyMaterial({
                             setIsEditingFullMaterial(true);
                         }}
                         title="Editar o material completo, fórmulas e gráficos com visualização ao vivo em tempo real"
-                        className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs py-2 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-1 shadow-sm"
+                        className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-[11px] sm:text-xs py-1.5 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-1 shadow-sm whitespace-nowrap flex-shrink-0"
                     >
-                        ✏️ Editar Todo o Material
+                        ✏️ Editar Material
                     </button>
 
                     {/* Botão de Continuar e Aprofundar Estudo */}
@@ -676,12 +685,12 @@ export default function StudyMaterial({
                             onClick={() => expandStudyMaterial(currentTrail)}
                             disabled={refreshLimitReached || isExpandingStudy}
                             title={refreshLimitReached ? 'Limite de atualizações/expansões atingido' : 'Continuar e aprofundar este estudo com novo módulo da IA'}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs py-2 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-40 flex items-center gap-1 shadow-sm"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] sm:text-xs py-1.5 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-40 flex items-center gap-1 shadow-sm whitespace-nowrap flex-shrink-0"
                         >
                             {isExpandingStudy ? (
                                 <span className="flex items-center gap-1 animate-pulse">⚡ Aprofundando...</span>
                             ) : (
-                                <span>⏩ Aprofundar Estudo</span>
+                                <span>⏩ Aprofundar (IA)</span>
                             )}
                         </button>
                     )}
@@ -691,9 +700,9 @@ export default function StudyMaterial({
                         onClick={() => generateContent(currentTrail, 'study', true)}
                         disabled={refreshLimitReached}
                         title={refreshLimitReached ? 'Limite de atualizações diárias atingido' : 'Regerar este material de estudo com IA'}
-                        className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 p-2 rounded-xl transition-colors disabled:opacity-40 border border-indigo-100 dark:border-indigo-900/50"
+                        className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 p-1.5 rounded-xl transition-colors disabled:opacity-40 border border-indigo-100 dark:border-indigo-900/50 flex-shrink-0"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="23 4 23 10 17 10"></polyline>
                             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
                         </svg>
@@ -705,7 +714,7 @@ export default function StudyMaterial({
             {studyContent ? (
                 <div
                     ref={contentRef}
-                    className={`markdown-content flex-grow overflow-y-auto pr-3 sm:pr-5 custom-scrollbar ${fontClasses[fontSizeLevel]}`}
+                    className={`markdown-content flex-grow overflow-y-auto pr-2 sm:pr-5 custom-scrollbar ${fontClasses[fontSizeLevel]}`}
                     dangerouslySetInnerHTML={{ __html: formattedContent }}
                 />
             ) : (
@@ -715,64 +724,50 @@ export default function StudyMaterial({
                 </div>
             )}
 
-            {/* Rodapé de Ações */}
-            <div className="mt-6 flex flex-col sm:flex-row justify-between items-center gap-3 flex-shrink-0 pt-4 border-t border-slate-100 dark:border-gray-700">
+            {/* Rodapé de Ações Limpo e Responsivo */}
+            <div className="mt-3 sm:mt-6 flex flex-col sm:flex-row justify-between items-center gap-2.5 flex-shrink-0 pt-3 border-t border-slate-100 dark:border-gray-700">
                 <button
                     onClick={() => setAppState('trail_options')}
-                    className="w-full sm:w-auto text-indigo-600 dark:text-indigo-400 font-extrabold hover:underline text-sm transition-colors text-center"
+                    className="w-full sm:w-auto text-indigo-600 dark:text-indigo-400 font-extrabold hover:underline text-xs sm:text-sm transition-colors text-center py-1"
                 >
                     ← Voltar às Opções
                 </button>
                 
-                <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                <div className="flex flex-row items-center gap-2 w-full sm:w-auto">
                     <button
                         onClick={() => {
                             setEditableText(studyContent || '');
                             setIsEditingFullMaterial(true);
                         }}
-                        className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold py-3 px-4 rounded-2xl transition-all text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-sm"
+                        className="sm:hidden flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold py-2.5 px-3 rounded-xl transition-all text-xs flex items-center justify-center gap-1 shadow-sm"
                     >
-                        <span>✏️ Editar Todo o Material</span>
+                        <span>✏️ Editar</span>
                     </button>
-
-                    {expandStudyMaterial && (
-                        <button
-                            onClick={() => expandStudyMaterial(currentTrail)}
-                            disabled={refreshLimitReached || isExpandingStudy}
-                            className="w-full sm:w-auto bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-extrabold py-3 px-5 rounded-2xl border border-indigo-200 dark:border-indigo-800 transition-all text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
-                        >
-                            {isExpandingStudy ? (
-                                <span className="animate-pulse">⚡ Gerando próximo módulo avançado...</span>
-                            ) : (
-                                <span>⏩ Continuar & Aprofundar Conteúdo (IA)</span>
-                            )}
-                        </button>
-                    )}
 
                     <button
                         onClick={handleFinishStudyAndStartQuiz}
-                        className="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-extrabold py-3 px-6 rounded-2xl shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] text-xs sm:text-sm flex items-center justify-center gap-1.5"
+                        className="w-full sm:w-auto flex-1 bg-green-500 hover:bg-green-600 text-white font-extrabold py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl sm:rounded-2xl shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] text-xs sm:text-sm flex items-center justify-center gap-1.5"
                     >
-                        <span>{userData.hearts <= 0 ? "Concluir Estudo & Restaurar Corações!" : "Concluir Estudo & Iniciar Quiz →"}</span>
+                        <span>{userData.hearts <= 0 ? "Concluir & Restaurar!" : "Concluir & Iniciar Quiz →"}</span>
                     </button>
                 </div>
             </div>
 
             {/* Modal Overlay de Edição Completa do Material com Live Preview */}
             {isEditingFullMaterial && (
-                <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col p-4 sm:p-6 animate-fade-in">
+                <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col p-3 sm:p-6 animate-fade-in">
                     {/* Cabeçalho do Editor Completo */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 mb-4 border-b border-slate-800 flex-shrink-0">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 pb-3 mb-3 border-b border-slate-800 flex-shrink-0">
                         <div>
-                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400 bg-amber-950/80 px-3 py-1 rounded-full border border-amber-800/60">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400 bg-amber-950/80 px-2.5 py-0.5 rounded-full border border-amber-800/60">
                                 ✏️ Modo Edição Completa & Live Preview
                             </span>
-                            <h2 className="text-xl font-extrabold text-white mt-1">
+                            <h2 className="text-base sm:text-xl font-extrabold text-white mt-1 line-clamp-1">
                                 {currentTrail?.title}
                             </h2>
                         </div>
                         
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                             <button
                                 onClick={async () => {
                                     if (user?.uid && currentTrail?.id) {
@@ -787,51 +782,67 @@ export default function StudyMaterial({
                                     }
                                     setIsEditingFullMaterial(false);
                                 }}
-                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-xl text-xs transition-all shadow-lg flex items-center gap-1.5"
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs transition-all shadow-lg flex items-center gap-1.5"
                             >
-                                💾 Salvar Alterações no Estudo
+                                💾 Salvar Estudo
                             </button>
                             <button
                                 onClick={() => setIsEditingFullMaterial(false)}
-                                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-xl text-xs transition-colors"
+                                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs transition-colors"
                             >
-                                ❌ Cancelar
+                                ❌ Sair
                             </button>
                         </div>
                     </div>
 
-                    {/* Layout Split: Esquerda Editor, Direita Live Preview */}
+                    {/* Alternador de Abas apenas no Mobile */}
+                    <div className="flex lg:hidden bg-slate-900 p-1 rounded-xl mb-2.5 border border-slate-800 flex-shrink-0">
+                        <button
+                            onClick={() => setMobileEditorTab('edit')}
+                            className={`flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all ${mobileEditorTab === 'edit' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                        >
+                            📝 Editar Conteúdo
+                        </button>
+                        <button
+                            onClick={() => setMobileEditorTab('preview')}
+                            className={`flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all ${mobileEditorTab === 'preview' ? 'bg-emerald-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                        >
+                            👁️ Live Preview
+                        </button>
+                    </div>
+
+                    {/* Layout Split no Desktop (lg), Alternado por Abas no Mobile */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-grow overflow-hidden">
                         {/* Painel Esquerdo: Textarea de Edição Completa */}
-                        <div className="flex flex-col bg-slate-900 rounded-2xl p-4 border border-slate-800 overflow-hidden">
-                            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs text-slate-400">
+                        <div className={`flex flex-col bg-slate-900 rounded-2xl p-3 sm:p-4 border border-slate-800 overflow-hidden ${mobileEditorTab === 'edit' ? 'flex' : 'hidden lg:flex'}`}>
+                            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs text-slate-400 flex-shrink-0">
                                 <span className="font-bold text-amber-400">📝 Código Markdown / Math / Mermaid</span>
-                                <span className="text-[10px] text-slate-500 font-mono">{editableText.length} caracteres</span>
+                                <span className="text-[10px] text-slate-500 font-mono">{editableText.length} chars</span>
                             </div>
 
                             {/* Barra de Ferramentas de Inserção Rápida */}
-                            <div className="flex flex-wrap gap-1.5 mb-2 pb-2 border-b border-slate-800/80">
+                            <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-slate-800/80 overflow-x-auto no-scrollbar flex-shrink-0">
                                 <button
                                     onClick={() => setEditableText(prev => prev + '\n\n```mermaid\ngraph TD\nA["Início"] --> B["Resultado"]\n```\n')}
-                                    className="text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 px-2 py-1 rounded-lg hover:bg-indigo-900"
+                                    className="text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 px-2 py-1 rounded-lg hover:bg-indigo-900 whitespace-nowrap flex-shrink-0"
                                 >
                                     + Diagrama Mermaid
                                 </button>
                                 <button
                                     onClick={() => setEditableText(prev => prev + '\n\n$$ \\sum_{i=1}^{n} a_i $$\n')}
-                                    className="text-[10px] font-bold bg-purple-950 text-purple-300 border border-purple-800 px-2 py-1 rounded-lg hover:bg-purple-900"
+                                    className="text-[10px] font-bold bg-purple-950 text-purple-300 border border-purple-800 px-2 py-1 rounded-lg hover:bg-purple-900 whitespace-nowrap flex-shrink-0"
                                 >
                                     + Fórmula LaTeX
                                 </button>
                                 <button
                                     onClick={() => setEditableText(prev => prev + '\n\n```python\ndef lambda_handler(event, context):\n    return {"status": 200}\n```\n')}
-                                    className="text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-1 rounded-lg hover:bg-emerald-900"
+                                    className="text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-1 rounded-lg hover:bg-emerald-900 whitespace-nowrap flex-shrink-0"
                                 >
                                     + Bloco Python
                                 </button>
                                 <button
                                     onClick={() => setEditableText(prev => prev + '\n\n### Novo Tópico de Estudo\n')}
-                                    className="text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800 px-2 py-1 rounded-lg hover:bg-amber-900"
+                                    className="text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800 px-2 py-1 rounded-lg hover:bg-amber-900 whitespace-nowrap flex-shrink-0"
                                 >
                                     + Título ###
                                 </button>
@@ -840,13 +851,13 @@ export default function StudyMaterial({
                             <textarea
                                 value={editableText}
                                 onChange={(e) => setEditableText(e.target.value)}
-                                className="w-full flex-grow p-4 bg-slate-950 font-mono text-xs text-slate-100 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500 resize-none custom-scrollbar leading-relaxed"
+                                className="w-full flex-grow p-3 bg-slate-950 font-mono text-xs text-slate-100 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500 resize-none custom-scrollbar leading-relaxed"
                             />
                         </div>
 
                         {/* Painel Direito: Visualização em Tempo Real (Live Preview) */}
-                        <div className="flex flex-col bg-slate-900 rounded-2xl p-4 border border-slate-800 overflow-hidden">
-                            <div className="pb-2 mb-2 border-b border-slate-800 text-xs font-bold text-emerald-400">
+                        <div className={`flex flex-col bg-slate-900 rounded-2xl p-3 sm:p-4 border border-slate-800 overflow-hidden ${mobileEditorTab === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
+                            <div className="pb-2 mb-2 border-b border-slate-800 text-xs font-bold text-emerald-400 flex-shrink-0">
                                 👁️ Visualização em Tempo Real (Live Preview)
                             </div>
                             
