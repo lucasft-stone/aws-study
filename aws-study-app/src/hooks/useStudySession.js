@@ -67,6 +67,35 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         }
     }, [user]);
 
+    // Restaura o estado da navegação a partir dos parâmetros da URL ao recarregar a página (F5)
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const savedState = urlParams.get('state');
+
+        if (savedState && savedState !== 'home' && savedState !== 'login') {
+            setAppState(savedState);
+        }
+    }, []);
+
+    // Sincroniza a localização da página e a trilha atual na URL (ex: ?state=studying_material&trail=level-s3)
+    useEffect(() => {
+        if (!appState || appState === 'login') return;
+
+        const url = new URL(window.location.href);
+        if (appState === 'home') {
+            url.searchParams.delete('state');
+            url.searchParams.delete('trail');
+        } else {
+            url.searchParams.set('state', appState);
+            if (currentTrail?.id) {
+                url.searchParams.set('trail', currentTrail.id);
+            } else {
+                url.searchParams.delete('trail');
+            }
+        }
+        window.history.replaceState({}, '', url.toString());
+    }, [appState, currentTrail]);
+
     // Estados do Quiz
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState(null);

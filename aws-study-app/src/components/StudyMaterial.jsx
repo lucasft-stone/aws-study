@@ -142,7 +142,7 @@ export default function StudyMaterial({
                 const cleanCode = cleanBlockLines.join('\n');
                 if (cleanCode) {
                     const encoded = encodeURIComponent(cleanCode);
-                    return `\n<div class="mermaid-diagram-placeholder my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center overflow-x-auto flex justify-center items-center" data-mermaid-code="${encoded}">⚡ Renderizando gráfico visual...</div>\n`;
+                    return `\n\n<div class="mermaid-diagram-placeholder my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center overflow-x-auto flex justify-center items-center" data-mermaid-code="${encoded}">⚡ Renderizando gráfico visual...</div>\n\n`;
                 }
             }
 
@@ -157,6 +157,20 @@ export default function StudyMaterial({
                 return '```json\n' + formatJsonBlockString(trimmedBlock) + '\n```';
             }
 
+            return fullMatch;
+        });
+
+        // 2. Intercepta trechos soltos que começam com mermaid ou palavras-chave de gráficos sem cercas
+        text = text.replace(/(^|\n)(mermaid\s*\n\s*(?:graph|flowchart|sequenceDiagram|pie|gantt|classDiagram|mindmap)[\s\S]*?)(?=\n\n|\n#|$)/gi, (fullMatch, prefix, mermaidBlock) => {
+            const lines = mermaidBlock.trim().split('\n').map(l => l.trim()).filter(Boolean);
+            if (lines.length > 0 && /^mermaid(-js)?$/i.test(lines[0])) {
+                lines.shift();
+            }
+            const cleanCode = lines.join('\n');
+            if (cleanCode) {
+                const encoded = encodeURIComponent(cleanCode);
+                return prefix + `\n\n<div class="mermaid-diagram-placeholder my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center overflow-x-auto flex justify-center items-center" data-mermaid-code="${encoded}">⚡ Renderizando gráfico visual...</div>\n\n`;
+            }
             return fullMatch;
         });
 
