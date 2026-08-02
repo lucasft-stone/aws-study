@@ -209,7 +209,7 @@ export default function StudyMaterial({
         if (!contentRef.current) return;
 
         const renderContentElements = async () => {
-            // 1. Processa gráficos Mermaid PRIMEIRO e isoladamente
+            // 1. Processa gráficos Mermaid PRIMEIRO e isoladamente usando mermaid.run()
             const mermaidElements = Array.from(contentRef.current.querySelectorAll('.language-mermaid, code.language-mermaid'));
             for (let idx = 0; idx < mermaidElements.length; idx++) {
                 const codeEl = mermaidElements[idx];
@@ -228,20 +228,13 @@ export default function StudyMaterial({
                 if (!codeText) continue;
 
                 try {
-                    const id = `mermaid-svg-${Date.now()}-${idx}`;
-                    const { svg } = await mermaid.render(id, codeText);
-                    
                     const chartWrapper = document.createElement('div');
-                    chartWrapper.className = 'mermaid-chart-wrapper my-6 p-4 sm:p-6 bg-slate-900/95 rounded-2xl border border-indigo-900/60 shadow-2xl text-center overflow-x-auto flex flex-col justify-center items-center gap-2';
-                    chartWrapper.innerHTML = `
-                        <div class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-2.5 py-1 rounded-full border border-indigo-800/60 mb-2">
-                            📊 Gráfico / Diagrama Interativo
-                        </div>
-                        <div class="w-full flex justify-center">${svg}</div>
-                    `;
+                    chartWrapper.className = 'mermaid my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center overflow-x-auto flex justify-center items-center';
+                    chartWrapper.textContent = codeText;
 
                     if (pre.parentNode) {
                         pre.parentNode.replaceChild(chartWrapper, pre);
+                        await mermaid.run({ nodes: [chartWrapper] });
                     }
                 } catch (err) {
                     console.warn('Erro ao renderizar gráfico Mermaid:', err);
