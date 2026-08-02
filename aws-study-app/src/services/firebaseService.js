@@ -233,3 +233,47 @@ export const clearStudyCache = async (uid) => {
     });
     await Promise.all(deletePromises);
 };
+
+/**
+ * [ADMIN] Busca a lista de todos os usuários cadastrados no Firestore.
+ */
+export const fetchAllUsers = async () => {
+    if (!ENABLE_FIREBASE_AUTH || !db) return [];
+    try {
+        const usersQuery = query(collection(db, 'users'));
+        const querySnapshot = await getDocs(usersQuery);
+        return querySnapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
+    } catch (error) {
+        console.error("Erro ao buscar lista de usuários:", error);
+        throw error;
+    }
+};
+
+/**
+ * [ADMIN] Atualiza configurações, limites e status de bloqueio de um usuário alvo.
+ */
+export const updateAdminUserSettings = async (targetUid, settings) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !targetUid) return;
+    const userRef = doc(db, 'users', targetUid);
+    await setDoc(userRef, settings, { merge: true });
+};
+
+/**
+ * [ADMIN] Busca todas as trilhas e materiais gerados para um usuário específico.
+ */
+export const fetchUserAllData = async (targetUid) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !targetUid) return { trails: [], progress: [] };
+    
+    // Busca trilhas customizadas
+    const trailsQuery = query(collection(db, 'users', targetUid, 'customTrails'));
+    const trailsSnap = await getDocs(trailsQuery);
+    const trails = trailsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Busca progresso de materiais de estudo
+    const progressQuery = query(collection(db, 'users', targetUid, 'studyLevelProgress'));
+    const progressSnap = await getDocs(progressQuery);
+    const progress = progressSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    return { trails, progress };
+};
+

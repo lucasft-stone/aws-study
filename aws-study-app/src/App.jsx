@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Componentes da Interface
 import StudyBot from './components/StudyBot';
@@ -12,6 +12,7 @@ import StudyMaterial from './components/StudyMaterial';
 import StudyAnki from './components/StudyAnki';
 import Quiz from './components/Quiz';
 import Completed from './components/Completed';
+import AdminPanel from './components/AdminPanel';
 
 // Services e Custom Hooks Refatorados
 import { GEMINI_MODELS } from './services/geminiService';
@@ -139,7 +140,16 @@ export default function App() {
         generateContent(currentTrail, 'quiz');
     };
 
+    useEffect(() => {
+        if (window.location.pathname === '/admin') {
+            setAppState('admin');
+        }
+    }, [setAppState]);
+
     const handleReturnHome = () => {
+        if (window.location.pathname === '/admin') {
+            window.history.pushState({}, '', '/');
+        }
         setAppState('home');
         setSessionError('');
         resetQuizState();
@@ -149,14 +159,35 @@ export default function App() {
         return <LoadingScreen text="Inicializando o StudyBot..." />;
     }
 
+    if (userData?.isBlocked && appState !== 'admin') {
+        return (
+            <div className="w-full max-w-lg bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl text-center border border-red-200 dark:border-red-900/50">
+                <div className="text-5xl mb-4">🔒</div>
+                <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-2">Conta Suspensa</h2>
+                <p className="text-slate-600 dark:text-slate-300 mb-6">
+                    Sua conta de usuário foi temporariamente bloqueada pelo administrador do sistema.
+                </p>
+                <button
+                    onClick={signOut}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl transition-colors text-sm"
+                >
+                    Sair da Conta
+                </button>
+            </div>
+        );
+    }
+
     const currentError = sessionError || authError;
 
     const renderContent = () => {
-        if (!userData && ENABLE_FIREBASE_AUTH && appState !== 'login') {
+        if (!userData && ENABLE_FIREBASE_AUTH && appState !== 'login' && appState !== 'admin') {
             return <LoadingScreen text="Carregando dados do usuário..." />;
         }
 
         switch (appState) {
+            case 'admin':
+                return <AdminPanel user={user} handleReturnHome={handleReturnHome} />;
+
             case 'loading':
                 return <LoadingScreen text="Gerando conteúdo com IA..." />;
 

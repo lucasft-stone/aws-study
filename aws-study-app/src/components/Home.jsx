@@ -34,8 +34,19 @@ export default function Home({
                     )}
                     <span className="font-bold">{user?.displayName || "Usuário"}</span>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                     <span className="text-xl font-bold text-red-500 flex items-center gap-1">❤️ {userData.hearts}</span>
+                    {isRoot && (
+                        <button 
+                            onClick={() => {
+                                setAppState('admin');
+                                window.history.pushState({}, '', '/admin');
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-1.5 px-3 rounded-xl transition-transform hover:scale-105 shadow"
+                        >
+                            👑 Painel Admin
+                        </button>
+                    )}
                     {ENABLE_FIREBASE_AUTH && (
                         <button onClick={handleClearCache} className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">
                             Limpar Cache
