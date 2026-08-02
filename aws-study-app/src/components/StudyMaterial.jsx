@@ -5,11 +5,12 @@ import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
 import { checkIsAdmin } from '../services/firebaseService';
 
-// Inicialização limpa do Mermaid para gráficos e diagramas
+// Inicialização limpa do Mermaid para gráficos e diagramas sem banners ruidosos de erro
 mermaid.initialize({
     startOnLoad: false,
     theme: 'dark',
     securityLevel: 'loose',
+    suppressErrorRendering: true,
     fontFamily: 'system-ui, -apple-system, sans-serif'
 });
 
@@ -142,7 +143,7 @@ export default function StudyMaterial({
                 const cleanCode = cleanBlockLines.join('\n');
                 if (cleanCode) {
                     const encoded = encodeURIComponent(cleanCode);
-                    return `\n\n<div class="mermaid-diagram-placeholder my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center overflow-x-auto flex justify-center items-center" data-mermaid-code="${encoded}">⚡ Renderizando gráfico visual...</div>\n\n`;
+                    return `\n\n<div class="mermaid-diagram-placeholder my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center max-w-full overflow-hidden flex justify-center items-center" data-mermaid-code="${encoded}">⚡ Renderizando gráfico visual...</div>\n\n`;
                 }
             }
 
@@ -169,17 +170,17 @@ export default function StudyMaterial({
             const cleanCode = lines.join('\n');
             if (cleanCode) {
                 const encoded = encodeURIComponent(cleanCode);
-                return prefix + `\n\n<div class="mermaid-diagram-placeholder my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center overflow-x-auto flex justify-center items-center" data-mermaid-code="${encoded}">⚡ Renderizando gráfico visual...</div>\n\n`;
+                return prefix + `\n\n<div class="mermaid-diagram-placeholder my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center max-w-full overflow-hidden flex justify-center items-center" data-mermaid-code="${encoded}">⚡ Renderizando gráfico visual...</div>\n\n`;
             }
             return fullMatch;
         });
 
-        // 2. Empacota funções Python/Scripts soltos sem cercas em blocos de código
+        // 3. Empacota funções Python/Scripts soltos sem cercas em blocos de código
         text = text.replace(/(^|\n)((?:def\s+[a-zA-Z0-9_]+\([\s\S]*?|import\s+[a-zA-Z0-9_]+[\s\S]*?)\n\s*return\s*\{[\s\S]*?\n\s*\})(\n|$)/gi, (fullMatch, prefix, codeBlock, suffix) => {
             return prefix + '\n```python\n' + codeBlock.trim() + '\n```\n' + suffix;
         });
 
-        // 3. Processa apenas JSONs isolados (Políticas IAM, Buckets, Configurações) sem fatiar código de nenhuma linguagem
+        // 4. Processa apenas JSONs isolados (Políticas IAM, Buckets, Configurações) sem fatiar código de nenhuma linguagem
         let result = '';
         let i = 0;
 
@@ -244,8 +245,6 @@ export default function StudyMaterial({
     useEffect(() => {
         if (!contentRef.current) return;
 
-        const mermaidKeywords = ['graph', 'flowchart', 'sequenceDiagram', 'pie', 'gantt', 'classDiagram', 'stateDiagram-v2', 'stateDiagram', 'erDiagram', 'journey', 'mindmap', 'quadrantChart', 'architecture', 'c4Diagram', 'block-beta', 'block', 'gitGraph', 'timeline', 'sankey-beta', 'kanban'];
-
         const cleanMermaidSyntax = (rawText) => {
             let text = rawText
                 .replace(/&gt;/g, '>')
@@ -269,7 +268,21 @@ export default function StudyMaterial({
                 lines = lines.slice(firstKeywordIdx);
             }
 
-            return lines.join('\n').trim();
+            let code = lines.join('\n').trim();
+
+            // Auto-quoting inteligente de rótulos com caracteres especiais como :, =, <, >, (, )
+            code = code.replace(/(\[[^"\n]+\]|\{[^"\n]+\}|\([^"\n]+\))/g, (match) => {
+                const bracket = match[0];
+                const endBracket = match[match.length - 1];
+                const content = match.substring(1, match.length - 1);
+                
+                if (/[:=<>()[\]+*/]/g.test(content) && !content.startsWith('"')) {
+                    return `${bracket}"${content}"${endBracket}`;
+                }
+                return match;
+            });
+
+            return code;
         };
 
         const renderContentElements = async () => {
@@ -283,28 +296,30 @@ export default function StudyMaterial({
                 const rawEncoded = el.dataset.mermaidCode;
                 if (!rawEncoded) continue;
 
-                const cleanCode = decodeURIComponent(rawEncoded);
+                const cleanCode = cleanMermaidSyntax(decodeURIComponent(rawEncoded));
 
                 try {
                     const uniqueId = `mermaid_svg_${Date.now()}_${idx}`;
                     const { svg } = await mermaid.render(uniqueId, cleanCode);
 
                     el.innerHTML = `
-                        <div class="w-full flex flex-col items-center gap-2">
+                        <div class="w-full flex flex-col items-center gap-2 max-w-full overflow-hidden">
                             <div class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/60 mb-2">
                                 📊 Gráfico / Diagrama Visual
                             </div>
-                            <div class="w-full flex justify-center items-center overflow-x-auto">${svg}</div>
+                            <div class="w-full flex justify-center items-center overflow-x-auto max-w-full">${svg}</div>
                         </div>
                     `;
                 } catch (err) {
-                    console.warn('Erro ao renderizar placeholder do Mermaid:', err);
-                    try {
-                        el.textContent = cleanCode;
-                        await mermaid.run({ nodes: [el] });
-                    } catch (e2) {
-                        console.error('Fallback do Mermaid também falhou:', e2);
-                    }
+                    console.warn('Sintaxe do diagrama ajustada para exibição limpa:', err);
+                    el.className = 'my-6 p-4 sm:p-5 bg-slate-900/90 text-slate-100 rounded-2xl border border-slate-700/80 shadow-lg text-left max-w-full overflow-hidden';
+                    el.innerHTML = `
+                        <div class="flex items-center justify-between text-xs text-slate-400 mb-2 pb-2 border-b border-slate-800">
+                            <span class="font-bold text-amber-400 flex items-center gap-1">📊 Diagrama de Estudo</span>
+                            <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 uppercase font-mono">MERMAID</span>
+                        </div>
+                        <pre class="text-xs text-slate-200 font-mono overflow-x-auto p-3 bg-slate-950/90 rounded-xl border border-slate-800/80 whitespace-pre max-w-full"><code>${cleanCode}</code></pre>
+                    `;
                 }
             }
 
