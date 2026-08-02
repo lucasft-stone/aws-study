@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { marked } from 'marked';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
@@ -278,6 +278,77 @@ export default function StudyMaterial({
         return result;
     };
 
+    const cleanMermaidSyntax = useCallback((rawText) => {
+        if (!rawText) return '';
+        let text = rawText
+            .replace(/&gt;/g, '>')
+            .replace(/&lt;/g, '<')
+            .replace(/&amp;/g, '&')
+            .replace(/\\n/g, '\n')
+            .trim();
+
+        text = text.replace(/["'}\s]+$/g, '').trim();
+
+        let lines = text.split('\n').filter(Boolean);
+
+        // Remove a palavra "mermaid" ou "mermaid-js" se estiver isolada na primeira linha
+        if (lines.length > 0 && /^mermaid(-js)?$/i.test(lines[0].trim())) {
+            lines.shift();
+        }
+
+        const firstKeywordIdx = lines.findIndex(line => {
+            const trimmed = line.trim().toLowerCase();
+            return mermaidKeywords.some(kw => trimmed.startsWith(kw.toLowerCase()));
+        });
+
+        if (firstKeywordIdx !== -1) {
+            lines = lines.slice(firstKeywordIdx);
+        }
+
+        let code = lines.join('\n').trim();
+
+        // Auto-identação e sanitização avançada de nós para mindmaps
+        if (code.toLowerCase().startsWith('mindmap')) {
+            let mLines = code.split('\n').map(l => l.trimRight()).filter(Boolean);
+            if (mLines.length > 1) {
+                // Sanitiza o nó raiz do mindmap
+                mLines[1] = mLines[1].trim()
+                    .replace(/^root\s*\(\s*"([^"]+)"\s*\)$/gi, 'root["$1"]')
+                    .replace(/^root\s*\(\s*([^)]+)\s*\)$/gi, 'root["$1"]')
+                    .replace(/^root\s*\("([^"]+)"\)$/gi, 'root["$1"]');
+
+                if (mLines[1].startsWith('root') && !mLines[1].includes('[') && !mLines[1].includes('(')) {
+                    const rootVal = mLines[1].replace(/^root\s*/, '').trim();
+                    if (rootVal) mLines[1] = `root["${rootVal}"]`;
+                }
+
+                // Se os nós filhos não possuem recuo de espaços, aplica identação automática de 2 espaços
+                const hasIndent = mLines.slice(2).some(l => l.startsWith(' ') || l.startsWith('\t'));
+                if (!hasIndent) {
+                    mLines = mLines.map((line, idx) => {
+                        if (idx <= 1) return line.trim();
+                        return '  ' + line.trim();
+                    });
+                }
+            }
+            code = mLines.join('\n');
+        }
+
+        // Auto-quoting inteligente de rótulos com caracteres especiais como :, =, <, >, (, )
+        code = code.replace(/(\[[^"\n]+\]|\{[^"\n]+\}|\([^"\n]+\))/g, (match) => {
+            const bracket = match[0];
+            const endBracket = match[match.length - 1];
+            const content = match.substring(1, match.length - 1);
+            
+            if (/[:=<>()[\]+*/]/g.test(content) && !content.startsWith('"')) {
+                return `${bracket}"${content}"${endBracket}`;
+            }
+            return match;
+        });
+
+        return code;
+    }, []);
+
     // Formata o conteúdo Markdown + JSON Indentado + Fórmulas KaTeX
     const processedJson = fixAndFormatAllJsonInMarkdown(studyContent || '');
     const processedMath = renderLatexMathFormulas(processedJson);
@@ -286,77 +357,6 @@ export default function StudyMaterial({
     // Efeito para adicionar barras de título de linguagem, copiar código e renderizar gráficos Mermaid
     useEffect(() => {
         if (!contentRef.current) return;
-
-        const cleanMermaidSyntax = (rawText) => {
-            if (!rawText) return '';
-            let text = rawText
-                .replace(/&gt;/g, '>')
-                .replace(/&lt;/g, '<')
-                .replace(/&amp;/g, '&')
-                .replace(/\\n/g, '\n')
-                .trim();
-
-            text = text.replace(/["'}\s]+$/g, '').trim();
-
-            let lines = text.split('\n').filter(Boolean);
-
-            // Remove a palavra "mermaid" ou "mermaid-js" se estiver isolada na primeira linha
-            if (lines.length > 0 && /^mermaid(-js)?$/i.test(lines[0].trim())) {
-                lines.shift();
-            }
-
-            const firstKeywordIdx = lines.findIndex(line => {
-                const trimmed = line.trim().toLowerCase();
-                return mermaidKeywords.some(kw => trimmed.startsWith(kw.toLowerCase()));
-            });
-
-            if (firstKeywordIdx !== -1) {
-                lines = lines.slice(firstKeywordIdx);
-            }
-
-            let code = lines.join('\n').trim();
-
-            // Auto-identação e sanitização avançada de nós para mindmaps
-            if (code.toLowerCase().startsWith('mindmap')) {
-                let mLines = code.split('\n').map(l => l.trimRight()).filter(Boolean);
-                if (mLines.length > 1) {
-                    // Sanitiza o nó raiz do mindmap
-                    mLines[1] = mLines[1].trim()
-                        .replace(/^root\s*\(\s*"([^"]+)"\s*\)$/gi, 'root["$1"]')
-                        .replace(/^root\s*\(\s*([^)]+)\s*\)$/gi, 'root["$1"]')
-                        .replace(/^root\s*\("([^"]+)"\)$/gi, 'root["$1"]');
-
-                    if (mLines[1].startsWith('root') && !mLines[1].includes('[') && !mLines[1].includes('(')) {
-                        const rootVal = mLines[1].replace(/^root\s*/, '').trim();
-                        if (rootVal) mLines[1] = `root["${rootVal}"]`;
-                    }
-
-                    // Se os nós filhos não possuem recuo de espaços, aplica identação automática de 2 espaços
-                    const hasIndent = mLines.slice(2).some(l => l.startsWith(' ') || l.startsWith('\t'));
-                    if (!hasIndent) {
-                        mLines = mLines.map((line, idx) => {
-                            if (idx <= 1) return line.trim();
-                            return '  ' + line.trim();
-                        });
-                    }
-                }
-                code = mLines.join('\n');
-            }
-
-            // Auto-quoting inteligente de rótulos com caracteres especiais como :, =, <, >, (, )
-            code = code.replace(/(\[[^"\n]+\]|\{[^"\n]+\}|\([^"\n]+\))/g, (match) => {
-                const bracket = match[0];
-                const endBracket = match[match.length - 1];
-                const content = match.substring(1, match.length - 1);
-                
-                if (/[:=<>()[\]+*/]/g.test(content) && !content.startsWith('"')) {
-                    return `${bracket}"${content}"${endBracket}`;
-                }
-                return match;
-            });
-
-            return code;
-        };
 
         const renderContentElements = async () => {
             // 1. Processa Placeholders de Mermaid protegidos com encodeURIComponent
@@ -702,7 +702,7 @@ export default function StudyMaterial({
             clearTimeout(timer2);
             clearTimeout(timer3);
         };
-    }, [formattedContent, studyContent, currentTrail?.id, updateStudyContent, user?.uid]);
+    }, [formattedContent, studyContent, currentTrail?.id, updateStudyContent, user?.uid, cleanMermaidSyntax]);
 
     return (
         <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-4 sm:p-8 flex flex-col h-[91vh] sm:h-[88vh] border border-slate-100 dark:border-gray-700 animate-fade-in relative">
@@ -976,6 +976,7 @@ export default function StudyMaterial({
                                 text={editableText}
                                 fixAndFormatAllJsonInMarkdown={fixAndFormatAllJsonInMarkdown}
                                 renderLatexMathFormulas={renderLatexMathFormulas}
+                                cleanMermaidSyntax={cleanMermaidSyntax}
                             />
                         </div>
                     </div>
@@ -1024,7 +1025,7 @@ export default function StudyMaterial({
 }
 
 // Subcomponente de Visualização em Tempo Real (Live Preview)
-function LiveMaterialPreview({ text, fixAndFormatAllJsonInMarkdown, renderLatexMathFormulas }) {
+function LiveMaterialPreview({ text, fixAndFormatAllJsonInMarkdown, renderLatexMathFormulas, cleanMermaidSyntax }) {
     const previewRef = useRef(null);
     const processedJson = fixAndFormatAllJsonInMarkdown(text || '');
     const processedMath = renderLatexMathFormulas(processedJson);
@@ -1032,31 +1033,64 @@ function LiveMaterialPreview({ text, fixAndFormatAllJsonInMarkdown, renderLatexM
 
     useEffect(() => {
         if (!previewRef.current) return;
-        const timer = setTimeout(() => {
+        let isSubscribed = true;
+
+        const renderLiveDiagrams = async () => {
+            if (!previewRef.current || !isSubscribed) return;
+
             const placeholders = Array.from(previewRef.current.querySelectorAll('.mermaid-diagram-placeholder'));
-            placeholders.forEach(async (el, idx) => {
-                if (el.dataset.mermaidRendered) return;
-                el.dataset.mermaidRendered = 'true';
+
+            for (let idx = 0; idx < placeholders.length; idx++) {
+                const el = placeholders[idx];
                 const rawEncoded = el.dataset.mermaidCode || '';
-                const code = decodeURIComponent(rawEncoded);
-                try {
-                    const uniqueId = `mermaid_live_prev_${Date.now()}_${idx}`;
-                    const { svg } = await mermaid.render(uniqueId, code);
-                    el.innerHTML = `
-                        <div class="w-full flex flex-col items-center gap-2 max-w-full overflow-hidden">
-                            <div class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/60 mb-1">
-                                📊 Gráfico / Diagrama Visual
-                            </div>
-                            <div class="w-full flex justify-center items-center overflow-x-auto max-w-full py-2">${svg}</div>
-                        </div>
-                    `;
-                } catch {
-                    el.innerHTML = `<pre class="text-xs text-slate-200 font-mono p-3 bg-slate-950 rounded-xl"><code>${code}</code></pre>`;
+                if (!rawEncoded) continue;
+
+                const rawCode = decodeURIComponent(rawEncoded);
+                const cleanCode = cleanMermaidSyntax ? cleanMermaidSyntax(rawCode) : rawCode;
+
+                // Se o elemento já possui o SVG renderizado para este código exato, não refaz
+                if (el.dataset.renderedLiveCode === cleanCode && el.querySelector('.mermaid-svg-display svg')) {
+                    continue;
                 }
-            });
-        }, 50);
-        return () => clearTimeout(timer);
-    }, [html, text]);
+
+                try {
+                    const uniqueId = `mermaid_live_prev_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`;
+                    const { svg } = await mermaid.render(uniqueId, cleanCode);
+
+                    if (isSubscribed) {
+                        el.dataset.renderedLiveCode = cleanCode;
+                        el.innerHTML = `
+                            <div class="w-full flex flex-col items-center gap-2 max-w-full overflow-hidden my-4">
+                                <div class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/60 mb-1">
+                                    📊 Gráfico / Diagrama Visual (Live)
+                                </div>
+                                <div class="mermaid-svg-display w-full flex justify-center items-center overflow-x-auto max-w-full py-2">${svg}</div>
+                            </div>
+                        `;
+                    }
+                } catch {
+                    if (isSubscribed) {
+                        el.innerHTML = `
+                            <div class="my-4 p-4 bg-slate-900/90 rounded-2xl border border-amber-500/40 text-left">
+                                <span class="text-[10px] font-bold text-amber-400 block mb-1">⚠️ Diagrama em Edição (Ajustando Sintaxe...)</span>
+                                <pre class="text-xs text-slate-300 font-mono overflow-x-auto p-2 bg-slate-950 rounded-xl"><code>${cleanCode}</code></pre>
+                            </div>
+                        `;
+                    }
+                }
+            }
+        };
+
+        requestAnimationFrame(renderLiveDiagrams);
+        const timer1 = setTimeout(renderLiveDiagrams, 50);
+        const timer2 = setTimeout(renderLiveDiagrams, 200);
+
+        return () => {
+            isSubscribed = false;
+            clearTimeout(timer1);
+            clearTimeout(timer2);
+        };
+    }, [html, text, cleanMermaidSyntax]);
 
     return (
         <div
