@@ -245,6 +245,9 @@ export const fetchAllUsers = async () => {
         return querySnapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
     } catch (error) {
         console.error("Erro ao buscar lista de usuários:", error);
+        if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+            throw new Error("Permissão negada pelas regras do Firestore. Atualize o arquivo 'firestore.rules' no Firebase Console para permitir que administradores leiam a coleção '/users'.");
+        }
         throw error;
     }
 };

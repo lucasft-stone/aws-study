@@ -1,24 +1,29 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regra para a coleção 'users'
+
+    // Função utilitária para checar se o usuário é Administrador
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.uid == 'Wafgz4MpWUXOf7TKREcC9yZ5k073' ||
+        request.auth.token.email == 'felps.st2020@gmail.com'
+      );
+    }
+
+    // Regras para a coleção 'users'
     match /users/{userId} {
-      // Permite que um usuário leia e escreva em seu próprio documento.
-      // O usuário deve estar autenticado e seu UID deve corresponder ao {userId}.
-      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
-      // Permite que um novo usuário crie seu próprio documento.
+      // Permite que o próprio usuário leia/atualize seus dados, OU o Administrador leia/atualize qualquer usuário.
+      allow read, update, delete: if (request.auth != null && request.auth.uid == userId) || isAdmin();
       allow create: if request.auth != null;
 
       // Regra para a subcoleção 'customTrails'
       match /customTrails/{trailId} {
-        // Permite que o usuário autenticado gerencie seus próprios customTrails.
-        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+        allow read, write, delete: if (request.auth != null && request.auth.uid == userId) || isAdmin();
       }
 
-      // Regra para a nova subcoleção 'studyLevelProgress'
+      // Regra para a subcoleção 'studyLevelProgress'
       match /studyLevelProgress/{levelId} {
-        // Permite que o usuário autenticado leia e escreva em seu próprio progresso.
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write, delete: if (request.auth != null && request.auth.uid == userId) || isAdmin();
       }
     }
   }
