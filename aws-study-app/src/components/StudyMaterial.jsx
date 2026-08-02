@@ -331,10 +331,29 @@ export default function StudyMaterial({
                 if (svgResult) {
                     el.innerHTML = `
                         <div class="w-full flex flex-col items-center gap-2 max-w-full overflow-hidden">
-                            <div class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/60 mb-2">
-                                📊 Gráfico / Diagrama Visual
+                            <div class="w-full flex items-center justify-between gap-2 border-b border-indigo-900/60 pb-2 mb-1">
+                                <span class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/60">
+                                    📊 Gráfico / Diagrama Visual
+                                </span>
+                                <button class="toggle-mermaid-editor-btn text-xs font-bold text-indigo-300 hover:text-white bg-indigo-950/80 hover:bg-indigo-900 px-3 py-1 rounded-xl transition-all border border-indigo-800/80 flex items-center gap-1 shadow-sm">
+                                    ✏️ Editar Código
+                                </button>
                             </div>
-                            <div class="w-full flex justify-center items-center overflow-x-auto max-w-full">${svgResult}</div>
+
+                            <div class="mermaid-svg-display w-full flex justify-center items-center overflow-x-auto max-w-full py-2">
+                                ${svgResult}
+                            </div>
+
+                            <div class="mermaid-editor-form hidden w-full flex-col gap-3 text-left bg-slate-950/90 p-4 rounded-2xl border border-indigo-900/60 mt-2">
+                                <label class="text-[11px] text-indigo-300 font-bold">Edite o código Mermaid abaixo para atualizar o gráfico:</label>
+                                <textarea class="mermaid-editor-textarea w-full h-36 p-3 bg-slate-900 font-mono text-xs text-indigo-200 rounded-xl border border-indigo-800/80 focus:outline-none focus:border-indigo-500 resize-y">${cleanCode}</textarea>
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="mermaid-editor-error-msg hidden text-[11px] font-bold text-rose-400 bg-rose-950/80 px-3 py-1.5 rounded-xl border border-rose-800/60"></div>
+                                    <button class="render-edited-mermaid-btn bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-xl text-xs transition-all shadow-md flex items-center gap-1.5 ml-auto">
+                                        ⚡ Atualizar Gráfico
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     `;
                 } else {
@@ -406,12 +425,43 @@ export default function StudyMaterial({
                         container.dataset.mermaidCode = encodeURIComponent(editedCode);
                         container.innerHTML = `
                             <div class="w-full flex flex-col items-center gap-2 max-w-full overflow-hidden">
-                                <div class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/60 mb-2">
-                                    📊 Gráfico / Diagrama Visual
+                                <div class="w-full flex items-center justify-between gap-2 border-b border-indigo-900/60 pb-2 mb-1">
+                                    <span class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/60">
+                                        📊 Gráfico / Diagrama Visual
+                                    </span>
+                                    <button class="toggle-mermaid-editor-btn text-xs font-bold text-indigo-300 hover:text-white bg-indigo-950/80 hover:bg-indigo-900 px-3 py-1 rounded-xl transition-all border border-indigo-800/80 flex items-center gap-1 shadow-sm">
+                                        ✏️ Editar Código
+                                    </button>
                                 </div>
-                                <div class="w-full flex justify-center items-center overflow-x-auto max-w-full">${svg}</div>
+
+                                <div class="mermaid-svg-display w-full flex justify-center items-center overflow-x-auto max-w-full py-2">
+                                    ${svg}
+                                </div>
+
+                                <div class="mermaid-editor-form hidden w-full flex-col gap-3 text-left bg-slate-950/90 p-4 rounded-2xl border border-indigo-900/60 mt-2">
+                                    <label class="text-[11px] text-indigo-300 font-bold">Edite o código Mermaid abaixo para atualizar o gráfico:</label>
+                                    <textarea class="mermaid-editor-textarea w-full h-36 p-3 bg-slate-900 font-mono text-xs text-indigo-200 rounded-xl border border-indigo-800/80 focus:outline-none focus:border-indigo-500 resize-y">${editedCode}</textarea>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="mermaid-editor-error-msg hidden text-[11px] font-bold text-rose-400 bg-rose-950/80 px-3 py-1.5 rounded-xl border border-rose-800/60"></div>
+                                        <button class="render-edited-mermaid-btn bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-xl text-xs transition-all shadow-md flex items-center gap-1.5 ml-auto">
+                                            ⚡ Atualizar Gráfico
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         `;
+
+                        // Re-bind dos botões recém-injetados no DOM
+                        const newToggleBtn = container.querySelector('.toggle-mermaid-editor-btn');
+                        if (newToggleBtn) {
+                            newToggleBtn.addEventListener('click', () => {
+                                const form = container.querySelector('.mermaid-editor-form');
+                                if (form) {
+                                    form.classList.toggle('hidden');
+                                    form.classList.toggle('flex');
+                                }
+                            });
+                        }
                     } catch (err) {
                         console.warn("Erro na edição live do Mermaid:", err);
                         if (errorMsg) {
