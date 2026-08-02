@@ -23,6 +23,23 @@ export const ENABLE_FIREBASE_AUTH = import.meta.env.VITE_ENABLE_FIREBASE_AUTH ==
 export const HIDE_EXISTING_TRAILS = import.meta.env.VITE_HIDE_EXISTING_TRAILS === 'true';
 export const ROOT_USER_UID = import.meta.env.VITE_ROOT_USER_UID;
 
+/**
+ * Verifica se um usuário possui permissões de Administrador / Ilimitado (via UID ou E-mail).
+ */
+export const checkIsAdmin = (user) => {
+    if (!user) return false;
+    const rawAdmins = import.meta.env.VITE_ROOT_USER_UID || '';
+    const adminList = rawAdmins.split(',').map(s => s.trim()).filter(Boolean);
+    
+    // Lista de usuários ilimitados (por UID ou E-mail)
+    const unlimitedUsers = [
+        'felps.st2020@gmail.com',
+        ...adminList
+    ];
+
+    return unlimitedUsers.includes(user.uid) || (user.email && unlimitedUsers.includes(user.email));
+};
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
