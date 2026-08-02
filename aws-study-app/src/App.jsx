@@ -100,9 +100,12 @@ export default function App() {
             return;
         }
 
-        const limitReached = (userData?.dailyTrailCreations || 0) >= MAX_DAILY_TRAIL_CREATIONS;
-        if (limitReached && !isRoot) {
-            setSessionError(`Você atingiu o limite de ${MAX_DAILY_TRAIL_CREATIONS} nova trilha por dia.`);
+        const isUnlimitedUser = isRoot || userData?.isUnlimited === true;
+        const maxTrailsAllowed = isUnlimitedUser ? Infinity : (userData?.customMaxDailyTrailCreations ?? MAX_DAILY_TRAIL_CREATIONS);
+
+        const limitReached = (userData?.dailyTrailCreations || 0) >= maxTrailsAllowed;
+        if (limitReached && !isUnlimitedUser) {
+            setSessionError(`Você atingiu o limite de ${maxTrailsAllowed} nova(s) trilha(s) por dia.`);
             return;
         }
 
@@ -134,8 +137,9 @@ export default function App() {
     };
 
     const handleFinishStudyAndStartQuiz = () => {
+        const userMaxHearts = userData?.customMaxHearts ?? MAX_HEARTS;
         if ((userData?.hearts || 0) <= 0) {
-            updateUserData({ hearts: MAX_HEARTS });
+            updateUserData({ hearts: userMaxHearts });
         }
         generateContent(currentTrail, 'quiz');
     };

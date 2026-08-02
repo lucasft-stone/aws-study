@@ -115,10 +115,13 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
     };
 
     const generateContent = async (trail, type, forceRefresh = false) => {
+        const isUnlimitedUser = isRoot || userData?.isUnlimited === true;
+        const maxRefreshesAllowed = isUnlimitedUser ? Infinity : (userData?.customMaxDailyRefreshes ?? MAX_DAILY_REFRESHES);
+
         if (forceRefresh) {
-            const limitReached = (userData?.dailyRefreshes || 0) >= MAX_DAILY_REFRESHES;
-            if (limitReached && !isRoot) {
-                setSessionError(`Você atingiu o limite de ${MAX_DAILY_REFRESHES} atualizações por dia.`);
+            const limitReached = (userData?.dailyRefreshes || 0) >= maxRefreshesAllowed;
+            if (limitReached && !isUnlimitedUser) {
+                setSessionError(`Você atingiu o limite de ${maxRefreshesAllowed} atualizações por dia.`);
                 return;
             }
             await updateUserData({ dailyRefreshes: (userData?.dailyRefreshes || 0) + 1 });

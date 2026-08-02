@@ -73,6 +73,9 @@ export default function AdminPanel({ user, handleReturnHome }) {
             isUnlimited: u.isUnlimited || false,
             xp: u.xp || 0,
             hearts: u.hearts ?? 5,
+            customMaxHearts: u.customMaxHearts ?? 5,
+            customMaxDailyRefreshes: u.customMaxDailyRefreshes ?? 10,
+            customMaxTrailCreations: u.customMaxTrailCreations ?? 1,
             dailyRefreshes: u.dailyRefreshes || 0,
             dailyTrailCreations: u.dailyTrailCreations || 0
         });
@@ -415,8 +418,8 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                             />
                                         </div>
 
-                                        <div>
-                                            <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Corações (Vidas)</label>
+                                         <div>
+                                            <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Corações Atuais</label>
                                             <input
                                                 type="number"
                                                 value={editForm.hearts}
@@ -426,9 +429,45 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                         </div>
                                     </div>
 
+                                    {/* Seção de Limites Customizados */}
+                                    <div className="p-4 bg-indigo-50/50 dark:bg-indigo-950/40 rounded-2xl border border-indigo-100 dark:border-indigo-900/60 space-y-4">
+                                        <h4 className="font-bold text-sm text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                                            <span>🎯 Personalização de Limites do Usuário</span>
+                                        </h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            <div>
+                                                <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">Max Corações</label>
+                                                <input
+                                                    type="number"
+                                                    value={editForm.customMaxHearts}
+                                                    onChange={(e) => setEditForm({ ...editForm, customMaxHearts: parseInt(e.target.value) || 5 })}
+                                                    className="w-full p-2.5 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl font-bold text-sm"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">Max Refreshes/Dia</label>
+                                                <input
+                                                    type="number"
+                                                    value={editForm.customMaxDailyRefreshes}
+                                                    onChange={(e) => setEditForm({ ...editForm, customMaxDailyRefreshes: parseInt(e.target.value) || 10 })}
+                                                    className="w-full p-2.5 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl font-bold text-sm"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">Max Trilhas/Dia</label>
+                                                <input
+                                                    type="number"
+                                                    value={editForm.customMaxDailyTrailCreations}
+                                                    onChange={(e) => setEditForm({ ...editForm, customMaxDailyTrailCreations: parseInt(e.target.value) || 1 })}
+                                                    className="w-full p-2.5 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl font-bold text-sm"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Atualizações Hoje (Refreshes)</label>
+                                            <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Atualizações Efetuadas Hoje</label>
                                             <input
                                                 type="number"
                                                 value={editForm.dailyRefreshes}
