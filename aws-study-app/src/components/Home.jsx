@@ -176,31 +176,31 @@ export default function Home({
                             <div
                                 key={topic.id}
                                 onClick={() => setSelectedTopicId(topic.id)}
-                                className="p-5 bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-700/60 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-700 transition-all cursor-pointer transform hover:-translate-y-0.5 flex items-center justify-between gap-4 group"
+                                className="p-4 sm:p-5 bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-700/60 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-700 transition-all cursor-pointer transform hover:-translate-y-0.5 flex items-center justify-between gap-3 group"
                             >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-3xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                                <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-grow">
+                                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-2xl sm:text-3xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                                         {topic.icon}
                                     </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="text-lg font-extrabold text-slate-800 dark:text-white group-hover:text-indigo-600 transition-colors">
+                                    <div className="min-w-0 flex-grow text-left">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <h3 className="text-base sm:text-lg font-extrabold text-slate-800 dark:text-white group-hover:text-indigo-600 transition-colors truncate">
                                                 {topic.title}
                                             </h3>
-                                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${topic.badge === 'Oficial AWS' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300'}`}>
+                                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full flex-shrink-0 ${topic.badge === 'Oficial AWS' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300'}`}>
                                                 {topic.badge}
                                             </span>
                                         </div>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
                                             {topic.description}
                                         </p>
-                                        <p className="text-[11px] font-bold text-indigo-500 mt-1">
+                                        <p className="text-[11px] font-bold text-indigo-500 mt-0.5">
                                             {topic.items.length} subtópico(s) de estudo →
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
                                     {topic.badge === 'Personalizado' && handleDeleteTopic && (
                                         <button
                                             onClick={(e) => {
@@ -208,12 +208,12 @@ export default function Home({
                                                 handleDeleteTopic(topic);
                                             }}
                                             title="Excluir este tópico completo e todos os seus subtópicos"
-                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition-all border border-transparent hover:border-rose-200 dark:hover:border-rose-900"
+                                            className="p-2 text-rose-500 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition-all border border-slate-100 dark:border-gray-700"
                                         >
                                             🗑️
                                         </button>
                                     )}
-                                    <div className="text-slate-300 group-hover:text-indigo-600 font-bold text-xl transition-colors">
+                                    <div className="text-slate-300 group-hover:text-indigo-600 font-bold text-lg sm:text-xl transition-colors">
                                         ➔
                                     </div>
                                 </div>
