@@ -338,16 +338,89 @@ export default function StudyMaterial({
                         </div>
                     `;
                 } else {
-                    el.className = 'my-6 p-4 sm:p-5 bg-slate-900/90 text-slate-100 rounded-2xl border border-slate-700/80 shadow-lg text-left max-w-full overflow-hidden';
+                    el.className = 'mermaid-diagram-placeholder my-6 p-4 sm:p-5 bg-slate-900/95 text-slate-100 rounded-2xl border border-amber-500/40 shadow-2xl text-left max-w-full overflow-hidden flex flex-col gap-3';
                     el.innerHTML = `
-                        <div class="flex items-center justify-between text-xs text-slate-400 mb-2 pb-2 border-b border-slate-800">
-                            <span class="font-bold text-amber-400 flex items-center gap-1">📊 Diagrama de Estudo</span>
-                            <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 uppercase font-mono">MERMAID</span>
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-xs border-b border-slate-800 pb-2">
+                            <span class="font-extrabold text-amber-400 flex items-center gap-1.5">
+                                ⚠️ Diagrama de Estudo (Ajuste de Sintaxe)
+                            </span>
+                            <button class="toggle-mermaid-editor-btn bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1 rounded-xl text-xs transition-colors flex items-center gap-1 shadow-sm">
+                                ✏️ Editar e Renderizar
+                            </button>
                         </div>
-                        <pre class="text-xs text-slate-200 font-mono overflow-x-auto p-3 bg-slate-950/90 rounded-xl border border-slate-800/80 whitespace-pre max-w-full"><code>${cleanCode}</code></pre>
+
+                        <div class="mermaid-code-view">
+                            <pre class="text-xs text-slate-200 font-mono overflow-x-auto p-3 bg-slate-950/90 rounded-xl border border-slate-800/80 whitespace-pre max-w-full"><code>${cleanCode}</code></pre>
+                        </div>
+
+                        <div class="mermaid-editor-form hidden flex-col gap-3">
+                            <label class="text-[11px] text-slate-400 font-bold">Ajuste o código Mermaid abaixo e clique em Renderizar:</label>
+                            <textarea class="mermaid-editor-textarea w-full h-36 p-3 bg-slate-950 font-mono text-xs text-indigo-300 rounded-xl border border-indigo-900/80 focus:outline-none focus:border-indigo-500 resize-y">${cleanCode}</textarea>
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="mermaid-editor-error-msg hidden text-[11px] font-bold text-rose-400 bg-rose-950/80 px-3 py-1.5 rounded-xl border border-rose-800/60"></div>
+                                <button class="render-edited-mermaid-btn bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-xl text-xs transition-all shadow-md flex items-center gap-1.5 ml-auto">
+                                    ⚡ Renderizar Gráfico
+                                </button>
+                            </div>
+                        </div>
                     `;
                 }
             }
+
+            // Atribui manipuladores de eventos para os botões de edição de Mermaid
+            const toggleBtns = contentRef.current.querySelectorAll('.toggle-mermaid-editor-btn');
+            toggleBtns.forEach(btn => {
+                if (btn.dataset.editorBound) return;
+                btn.dataset.editorBound = 'true';
+                btn.addEventListener('click', (e) => {
+                    const container = e.target.closest('.mermaid-diagram-placeholder');
+                    if (!container) return;
+                    const form = container.querySelector('.mermaid-editor-form');
+                    if (form) {
+                        form.classList.toggle('hidden');
+                        form.classList.toggle('flex');
+                    }
+                });
+            });
+
+            const renderBtns = contentRef.current.querySelectorAll('.render-edited-mermaid-btn');
+            renderBtns.forEach(btn => {
+                if (btn.dataset.renderBound) return;
+                btn.dataset.renderBound = 'true';
+                btn.addEventListener('click', async (e) => {
+                    const container = e.target.closest('.mermaid-diagram-placeholder');
+                    if (!container) return;
+
+                    const textarea = container.querySelector('.mermaid-editor-textarea');
+                    const errorMsg = container.querySelector('.mermaid-editor-error-msg');
+                    if (!textarea) return;
+
+                    const editedCode = textarea.value.trim();
+                    if (!editedCode) return;
+
+                    try {
+                        const newId = `mermaid_edited_${Date.now()}`;
+                        const { svg } = await mermaid.render(newId, editedCode);
+
+                        container.className = 'mermaid-diagram-placeholder my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center max-w-full overflow-hidden flex justify-center items-center';
+                        container.dataset.mermaidCode = encodeURIComponent(editedCode);
+                        container.innerHTML = `
+                            <div class="w-full flex flex-col items-center gap-2 max-w-full overflow-hidden">
+                                <div class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/60 mb-2">
+                                    📊 Gráfico / Diagrama Visual
+                                </div>
+                                <div class="w-full flex justify-center items-center overflow-x-auto max-w-full">${svg}</div>
+                            </div>
+                        `;
+                    } catch (err) {
+                        console.warn("Erro na edição live do Mermaid:", err);
+                        if (errorMsg) {
+                            errorMsg.textContent = '❌ Erro de sintaxe: Verifique aspas, parênteses ou delimitadores.';
+                            errorMsg.classList.remove('hidden');
+                        }
+                    }
+                });
+            });
 
             // 2. Varredura Universal em blocos <pre> como segundo nível de garantia
             const preElements = Array.from(contentRef.current.querySelectorAll('pre'));
