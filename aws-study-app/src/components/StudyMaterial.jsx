@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { marked } from 'marked';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import { checkIsAdmin } from '../services/firebaseService';
 
 export default function StudyMaterial({
@@ -25,6 +27,33 @@ export default function StudyMaterial({
     // Estimativa de tempo de leitura (média de 200 palavras por minuto)
     const wordCount = studyContent ? studyContent.split(/\s+/).length : 0;
     const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 200));
+
+    // Função para renderizar equações e fórmulas matemáticas em LaTeX ($...$ e $$...$$)
+    const renderLatexMathFormulas = (text) => {
+        if (!text) return '';
+
+        // 1. Equações em bloco $$ ... $$ ou \[ ... \]
+        let processed = text.replace(/(\$\$|\\\[)([\s\S]*?)(\$\$|\\\])/g, (match, open, formula) => {
+            try {
+                return '<div class="katex-display-block my-4 text-center overflow-x-auto py-3 px-4 bg-slate-900/60 text-slate-100 rounded-2xl border border-slate-700/60 shadow-inner font-mono">' +
+                       katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false }) +
+                       '</div>';
+            } catch {
+                return match;
+            }
+        });
+
+        // 2. Equações em linha $ ... $ ou \( ... \)
+        processed = processed.replace(/(\$|\\\()([^$\n]+?)(\$|\\\))/g, (match, open, formula) => {
+            try {
+                return katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false });
+            } catch {
+                return match;
+            }
+        });
+
+        return processed;
+    };
 
     // Função robusta para autocorrigir, indentar (4 espaços) e envolver qualquer JSON em blocos de código
     const fixAndFormatAllJsonInMarkdown = (rawText) => {
@@ -97,35 +126,59 @@ export default function StudyMaterial({
         return text;
     };
 
-    // Formata o conteúdo Markdown
-    const processedContent = fixAndFormatAllJsonInMarkdown(studyContent || '');
-    const formattedContent = marked.parse(processedContent, { breaks: true, gfm: true });
+    // Formata o conteúdo Markdown + JSON Indentado + Fórmulas KaTeX
+    const processedJson = fixAndFormatAllJsonInMarkdown(studyContent || '');
+    const processedMath = renderLatexMathFormulas(processedJson);
+    const formattedContent = marked.parse(processedMath, { breaks: true, gfm: true });
 
-    // Efeito para adicionar botões de copiar em todos os blocos de código
+    // Efeito para adicionar barras de título de linguagem e botões de copiar em todos os blocos de código
     useEffect(() => {
         if (!contentRef.current) return;
         const preElements = contentRef.current.querySelectorAll('pre');
 
         preElements.forEach((pre) => {
-            if (pre.querySelector('.copy-code-btn')) return; // Evita duplicar o botão
+            if (pre.querySelector('.copy-code-btn')) return; // Evita duplicar
 
-            const btn = document.createElement('button');
-            btn.className = 'copy-code-btn absolute top-3 right-3 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold py-1 px-2.5 rounded-lg border border-slate-600 transition-all flex items-center gap-1 shadow cursor-pointer';
-            btn.innerHTML = '📋 Copiar';
+            // Detecta linguagem a partir da tag code (ex: language-python -> PYTHON)
+            const codeEl = pre.querySelector('code');
+            const classList = codeEl ? Array.from(codeEl.classList) : [];
+            const langMatch = classList.find(c => c.startsWith('language-'));
+            const langName = langMatch ? langMatch.replace('language-', '').toUpperCase() : 'CODE';
 
-            btn.onclick = () => {
-                const codeText = pre.querySelector('code')?.innerText || pre.innerText;
+            // Cria barra de topo do bloco de código com ícones estilo macOS + Badge + Botão de Copiar
+            const topBar = document.createElement('div');
+            topBar.className = 'code-header-bar flex justify-between items-center bg-slate-950/80 px-4 py-2 rounded-t-2xl border-b border-slate-800 text-xs text-slate-400 select-none -mt-5 -mx-5 mb-3';
+            topBar.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-yellow-500/80 inline-block"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-green-500/80 inline-block"></span>
+                    </span>
+                    <span class="font-extrabold text-[10px] tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-800/60 ml-2">
+                        ${langName}
+                    </span>
+                </div>
+            `;
+
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-code-btn bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold py-1 px-2.5 rounded-lg border border-slate-600 transition-all flex items-center gap-1 cursor-pointer';
+            copyBtn.innerHTML = '📋 Copiar';
+
+            copyBtn.onclick = () => {
+                const codeText = codeEl?.innerText || pre.innerText;
                 navigator.clipboard.writeText(codeText).then(() => {
-                    btn.innerHTML = '✅ Copiado!';
+                    copyBtn.innerHTML = '✅ Copiado!';
                     setCopiedToast(true);
                     setTimeout(() => {
-                        btn.innerHTML = '📋 Copiar';
+                        copyBtn.innerHTML = '📋 Copiar';
                         setCopiedToast(false);
                     }, 2500);
                 });
             };
 
-            pre.appendChild(btn);
+            topBar.appendChild(copyBtn);
+            pre.insertBefore(topBar, pre.firstChild);
         });
     }, [formattedContent]);
 
