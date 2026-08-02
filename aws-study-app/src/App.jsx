@@ -21,7 +21,8 @@ import {
     HIDE_EXISTING_TRAILS, 
     ROOT_USER_UID,
     checkIsAdmin,
-    updateProgressCache
+    updateProgressCache,
+    updateGlobalTrail
 } from './services/firebaseService';
 import { useAuthAndData } from './hooks/useAuthAndData';
 import { useStudySession } from './hooks/useStudySession';
@@ -76,6 +77,7 @@ export default function App() {
         studyContent,
         setStudyContent,
         quizQuestions,
+        setQuizQuestions,
         selectedModel,
         setSelectedModel,
         sessionError,
@@ -342,6 +344,8 @@ export default function App() {
                         quizQuestions={quizQuestions}
                         currentQuestionIndex={currentQuestionIndex}
                         userData={userData}
+                        user={user}
+                        currentTrail={currentTrail}
                         botStatus={botStatus}
                         selectedAnswer={selectedAnswer}
                         isAnswered={isAnswered}
@@ -351,6 +355,16 @@ export default function App() {
                         handleNextQuestion={handleNextQuestion}
                         handleReturnHome={handleReturnHome}
                         XP_PER_CORRECT_ANSWER={XP_PER_CORRECT_ANSWER}
+                        onSaveQuestions={async (newQuestions) => {
+                            if (!currentTrail) return;
+                            if (currentTrail.isGlobal) {
+                                await updateGlobalTrail(currentTrail.id, { cachedQuiz: newQuestions });
+                            } else {
+                                await updateProgressCache(user?.uid, currentTrail.id, { cachedQuiz: newQuestions });
+                            }
+                            setQuizQuestions(newQuestions);
+                            if (reloadTrails) reloadTrails();
+                        }}
                     />
                 );
 

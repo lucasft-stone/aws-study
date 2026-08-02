@@ -409,6 +409,7 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         studyContent,
         setStudyContent: updateStudyContentAndCache,
         quizQuestions,
+        setQuizQuestions,
         selectedModel,
         setSelectedModel,
         sessionError,

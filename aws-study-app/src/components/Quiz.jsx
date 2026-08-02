@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import LoadingScreen from './LoadingScreen';
 import StudyBot from './StudyBot';
+import QuizEditorModal from './QuizEditorModal';
+import { checkIsAdmin } from '../services/firebaseService';
 
 export default function Quiz({
     quizQuestions,
     currentQuestionIndex,
     userData,
+    user,
+    currentTrail,
     botStatus,
     selectedAnswer,
     isAnswered,
@@ -14,8 +18,12 @@ export default function Quiz({
     handleCheckAnswer,
     handleNextQuestion,
     handleReturnHome,
-    XP_PER_CORRECT_ANSWER
+    XP_PER_CORRECT_ANSWER,
+    onSaveQuestions
 }) {
+    const [isEditingQuiz, setIsEditingQuiz] = useState(false);
+    const isAdmin = checkIsAdmin(user);
+
     if (!quizQuestions || quizQuestions.length === 0) {
         return <LoadingScreen text="Gerando quiz..." />;
     }
@@ -24,7 +32,7 @@ export default function Quiz({
     const progressPercentage = ((currentQuestionIndex + 1) / quizQuestions.length) * 100;
 
     return (
-        <div className="w-full max-w-2xl px-4 flex flex-col justify-between min-h-[90vh]">
+        <div className="w-full max-w-2xl px-4 flex flex-col justify-between min-h-[90vh] relative">
             <header className="pt-4 flex items-center gap-4 flex-shrink-0">
                 <button
                     onClick={handleReturnHome}
@@ -38,8 +46,19 @@ export default function Quiz({
                         style={{ width: `${progressPercentage}%` }}
                     />
                 </div>
+                
+                {isAdmin && (
+                    <button
+                        onClick={() => setIsEditingQuiz(true)}
+                        className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-[11px] px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 shadow flex-shrink-0"
+                        title="Editar perguntas, respostas e criar questões manualmente (Admin)"
+                    >
+                        ✏️ Exercícios (Admin)
+                    </button>
+                )}
+
                 <div className="text-xl font-bold text-red-500 flex items-center gap-1 flex-shrink-0">
-                    ❤️ {userData.hearts}
+                    ❤️ {userData?.hearts}
                 </div>
             </header>
             
@@ -114,6 +133,17 @@ export default function Quiz({
                     </div>
                 )}
             </footer>
+
+            {/* Modal de Edição de Exercícios para Admin */}
+            {isEditingQuiz && (
+                <QuizEditorModal
+                    trail={{ ...currentTrail, cachedQuiz: quizQuestions }}
+                    onClose={() => setIsEditingQuiz(false)}
+                    onSave={async (newQuestions) => {
+                        if (onSaveQuestions) await onSaveQuestions(newQuestions);
+                    }}
+                />
+            )}
         </div>
     );
 }

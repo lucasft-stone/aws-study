@@ -15,6 +15,7 @@ import {
     deleteGlobalTrail
 } from '../services/firebaseService';
 import { fetchGeneratedStudyContent } from '../services/geminiService';
+import QuizEditorModal from './QuizEditorModal';
 
 export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
     const isAuthorized = checkIsAdmin(user);
@@ -33,6 +34,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
     // Form de criação/edição de trilha global
     const [showGlobalModal, setShowGlobalModal] = useState(false);
     const [editingGlobalTrail, setEditingGlobalTrail] = useState(null);
+    const [editingQuizTrail, setEditingQuizTrail] = useState(null);
     const [globalForm, setGlobalForm] = useState({
         title: '',
         topic: 'Matemática',
@@ -110,6 +112,22 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
             if (reloadTrails) reloadTrails();
         } catch (err) {
             setActionMessage("Erro ao salvar trilha global: " + err.message);
+        }
+    };
+
+    const handleSaveQuizQuestions = async (updatedQuestions) => {
+        if (!editingQuizTrail) return;
+        try {
+            await updateGlobalTrail(editingQuizTrail.id, {
+                cachedQuiz: updatedQuestions,
+                updatedAt: new Date()
+            });
+            setActionMessage(`Exercícios da trilha "${editingQuizTrail.title}" salvos com sucesso! (${updatedQuestions.length} questões)`);
+            await loadGlobalTrailsList();
+            if (reloadTrails) reloadTrails();
+        } catch (err) {
+            console.error("Erro ao salvar exercícios:", err);
+            setActionMessage("Erro ao salvar exercícios: " + err.message);
         }
     };
 
@@ -528,6 +546,14 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
                                                 ) : (
                                                     <span>⚡ {hasPack ? 'Regerar Pacote IA' : 'Gerar Pacote Completo (IA)'}</span>
                                                 )}
+                                            </button>
+
+                                            <button
+                                                onClick={() => setEditingQuizTrail(trail)}
+                                                className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold py-2 px-3 rounded-xl text-xs transition-colors shadow-sm"
+                                                title="Criar ou editar manualmente as perguntas, alternativas e respostas dos exercícios"
+                                            >
+                                                📝 Exercícios ({trail.cachedQuiz?.length || 0})
                                             </button>
 
                                             <button
@@ -1104,6 +1130,15 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* Modal de Edição Manual de Exercícios pelo Admin */}
+            {editingQuizTrail && (
+                <QuizEditorModal
+                    trail={editingQuizTrail}
+                    onClose={() => setEditingQuizTrail(null)}
+                    onSave={handleSaveQuizQuestions}
+                />
             )}
         </div>
     );
