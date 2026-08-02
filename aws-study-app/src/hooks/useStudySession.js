@@ -67,15 +67,48 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         }
     }, [user]);
 
-    // Restaura o estado da navegação a partir dos parâmetros da URL ao recarregar a página (F5)
+    // Restaura o estado da navegação e o conteúdo em cache a partir da URL ao recarregar a página (F5)
     useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const savedState = urlParams.get('state');
+        const restoreSessionFromUrl = async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const savedState = urlParams.get('state');
+            const savedTrailId = urlParams.get('trail');
 
-        if (savedState && savedState !== 'home' && savedState !== 'login') {
+            if (!savedState || savedState === 'home' || savedState === 'login') return;
+
+            if (savedTrailId && user?.uid) {
+                try {
+                    let loadedTrail = null;
+                    if (savedTrailId.startsWith('level-')) {
+                        const cachedData = await fetchStudyLevelProgress(user.uid, savedTrailId);
+                        if (cachedData) {
+                            loadedTrail = { id: savedTrailId, ...cachedData };
+                        }
+                    } else {
+                        const { fetchUserCustomTrails } = await import('../services/firebaseService');
+                        const customTrails = await fetchUserCustomTrails(user.uid);
+                        const found = customTrails.find(t => t.id === savedTrailId);
+                        if (found) {
+                            loadedTrail = found;
+                        }
+                    }
+
+                    if (loadedTrail) {
+                        setCurrentTrail(loadedTrail);
+                        if (loadedTrail.cachedStudy) setStudyContent(loadedTrail.cachedStudy);
+                        if (loadedTrail.cachedQuiz) setQuizQuestions(loadedTrail.cachedQuiz);
+                        if (loadedTrail.cachedAnki) setAnkiCards(loadedTrail.cachedAnki);
+                    }
+                } catch (err) {
+                    console.warn("Erro ao restaurar cache da URL:", err);
+                }
+            }
+
             setAppState(savedState);
-        }
-    }, []);
+        };
+
+        restoreSessionFromUrl();
+    }, [user]);
 
     // Sincroniza a localização da página e a trilha atual na URL (ex: ?state=studying_material&trail=level-s3)
     useEffect(() => {
