@@ -253,6 +253,9 @@ export default function StudyMaterial({
                 .replace(/\\n/g, '\n')
                 .trim();
 
+            // Limpa trecho indesejados no final como "} " ou aspas soltas
+            text = text.replace(/["'}\s]+$/g, '').trim();
+
             let lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
             // Remove a palavra "mermaid" ou "mermaid-js" se estiver isolada na primeira linha
@@ -269,6 +272,11 @@ export default function StudyMaterial({
             }
 
             let code = lines.join('\n').trim();
+
+            // Auto-quoting inteligente para mindmaps: root("(Texto)") -> root("Texto")
+            if (code.toLowerCase().startsWith('mindmap')) {
+                code = code.replace(/root\("([^"]+)"\)/gi, 'root("$1")').replace(/\("([^"]+)"\)/g, '("$1")');
+            }
 
             // Auto-quoting inteligente de rótulos com caracteres especiais como :, =, <, >, (, )
             code = code.replace(/(\[[^"\n]+\]|\{[^"\n]+\}|\([^"\n]+\))/g, (match) => {
@@ -298,20 +306,38 @@ export default function StudyMaterial({
 
                 const cleanCode = cleanMermaidSyntax(decodeURIComponent(rawEncoded));
 
+                let svgResult = null;
+
                 try {
                     const uniqueId = `mermaid_svg_${Date.now()}_${idx}`;
-                    const { svg } = await mermaid.render(uniqueId, cleanCode);
+                    const res = await mermaid.render(uniqueId, cleanCode);
+                    svgResult = res.svg;
+                } catch {
+                    try {
+                        // Tentativa de Auto-Reparo 2: Converte notações de mindmap com parênteses e aspas duplas misturadas
+                        const autoRepaired = cleanCode
+                            .replace(/root\("([^"]+)"\)/gi, 'root["$1"]')
+                            .replace(/\("([^"]+)"\)/g, '["$1"]')
+                            .replace(/["'}\s]+$/g, '')
+                            .trim();
+                        const uniqueId2 = `mermaid_svg_rep_${Date.now()}_${idx}`;
+                        const res2 = await mermaid.render(uniqueId2, autoRepaired);
+                        svgResult = res2.svg;
+                    } catch (err2) {
+                        console.warn('Sintaxe do diagrama ajustada para exibição limpa:', err2);
+                    }
+                }
 
+                if (svgResult) {
                     el.innerHTML = `
                         <div class="w-full flex flex-col items-center gap-2 max-w-full overflow-hidden">
                             <div class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/60 mb-2">
                                 📊 Gráfico / Diagrama Visual
                             </div>
-                            <div class="w-full flex justify-center items-center overflow-x-auto max-w-full">${svg}</div>
+                            <div class="w-full flex justify-center items-center overflow-x-auto max-w-full">${svgResult}</div>
                         </div>
                     `;
-                } catch (err) {
-                    console.warn('Sintaxe do diagrama ajustada para exibição limpa:', err);
+                } else {
                     el.className = 'my-6 p-4 sm:p-5 bg-slate-900/90 text-slate-100 rounded-2xl border border-slate-700/80 shadow-lg text-left max-w-full overflow-hidden';
                     el.innerHTML = `
                         <div class="flex items-center justify-between text-xs text-slate-400 mb-2 pb-2 border-b border-slate-800">
