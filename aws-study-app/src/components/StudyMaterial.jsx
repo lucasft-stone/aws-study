@@ -122,25 +122,28 @@ export default function StudyMaterial({
         };
 
         // 1. Re-formata blocos com cercas ``` convertendo Mermaid em placeholders HTML protegidos (encodeURIComponent)
-        text = text.replace(/```([a-zA-Z0-9_-]*)\s*\n([\s\S]*?)```/gi, (fullMatch, lang, block) => {
+        text = text.replace(/```\s*([a-zA-Z0-9_-]*)\s*([\s\S]*?)```/gi, (fullMatch, lang, block) => {
             const trimmedLang = lang.trim().toLowerCase();
             const trimmedBlock = block.trim();
 
             const lines = trimmedBlock.split('\n').map(l => l.trim()).filter(Boolean);
-            const firstLine = lines.length > 0 ? lines[0].toLowerCase() : '';
             
             const isMermaidLang = trimmedLang === 'mermaid' || trimmedLang === 'mermaid-js';
-            const startsWithMermaidKeyword = mermaidKeywords.some(kw => firstLine.startsWith(kw.toLowerCase()));
+            const hasMermaidKeyword = lines.slice(0, 3).some(line => {
+                const lower = line.toLowerCase();
+                return lower === 'mermaid' || lower === 'mermaid-js' || mermaidKeywords.some(kw => lower.startsWith(kw.toLowerCase()));
+            });
 
-            if (isMermaidLang || startsWithMermaidKeyword) {
+            if (isMermaidLang || hasMermaidKeyword) {
                 let cleanBlockLines = [...lines];
-                if (cleanBlockLines.length > 0 && /^mermaid(-js)?$/i.test(cleanBlockLines[0])) {
+                while (cleanBlockLines.length > 0 && /^mermaid(-js)?$/i.test(cleanBlockLines[0])) {
                     cleanBlockLines.shift();
                 }
                 const cleanCode = cleanBlockLines.join('\n');
-                const encoded = encodeURIComponent(cleanCode);
-
-                return `\n<div class="mermaid-diagram-placeholder my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center overflow-x-auto flex justify-center items-center" data-mermaid-code="${encoded}">⚡ Renderizando gráfico visual...</div>\n`;
+                if (cleanCode) {
+                    const encoded = encodeURIComponent(cleanCode);
+                    return `\n<div class="mermaid-diagram-placeholder my-6 p-4 sm:p-6 bg-slate-900/95 text-slate-100 rounded-2xl border border-indigo-900/60 shadow-2xl text-center overflow-x-auto flex justify-center items-center" data-mermaid-code="${encoded}">⚡ Renderizando gráfico visual...</div>\n`;
+                }
             }
 
             if (trimmedLang && trimmedLang !== 'json') {
@@ -301,16 +304,16 @@ export default function StudyMaterial({
                 const codeEl = pre.querySelector('code') || pre;
                 const rawCode = (codeEl.innerText || codeEl.textContent || '').trim();
                 const classList = Array.from(codeEl.classList || []).concat(Array.from(pre.classList || []));
-                const hasMermaidHeader = classList.some(c => c.includes('mermaid')) || /^mermaid/i.test(rawCode);
+                const lines = rawCode.split('\n').map(l => l.trim()).filter(Boolean);
+                const hasMermaidHeader = classList.some(c => c.includes('mermaid')) || lines.slice(0, 3).some(line => {
+                    const lower = line.toLowerCase();
+                    return lower === 'mermaid' || lower === 'mermaid-js' || mermaidKeywords.some(kw => lower.startsWith(kw.toLowerCase()));
+                });
 
                 const cleanCode = cleanMermaidSyntax(rawCode);
                 if (!cleanCode) continue;
 
-                // Verifica se tem classe mermaid, header mermaid ou se a primeira linha começa com palavra-chave
-                const firstLine = cleanCode.split('\n')[0].trim();
-                const isMermaidDiagram = hasMermaidHeader || mermaidKeywords.some(kw => firstLine.toLowerCase().startsWith(kw.toLowerCase()));
-
-                if (isMermaidDiagram) {
+                if (hasMermaidHeader) {
                     pre.dataset.mermaidRendered = 'true';
                     try {
                         const uniqueId = `mermaid_chart_${Date.now()}_${idx}`;
