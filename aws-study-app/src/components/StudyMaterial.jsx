@@ -938,6 +938,27 @@ export default function StudyMaterial({
                                     📈 Plotar Gráfico (XY)
                                 </button>
                                 <button
+                                    onClick={() => setEditableText(prev => prev + '\n\n```mermaid\ngraph TD\n    classDef shape fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#fff;\n    A["Vértice A (Topo)"] ---|Hipotenusa c = √(a² + b²)| C["Vértice C (Direita)"]\n    A ---|Cateto Oposto a| B["Vértice B (Ângulo Reto 90°)"]\n    B ---|Cateto Adjacente b| C\n    class A,B,C shape;\n```\n')}
+                                    className="text-[10px] font-extrabold bg-cyan-950 text-cyan-300 border border-cyan-800 px-2.5 py-1 rounded-lg hover:bg-cyan-900 whitespace-nowrap flex-shrink-0 shadow-sm"
+                                    title="Inserir diagrama de triângulo retângulo e lados para estudos de Geometria"
+                                >
+                                    📐 Geometria (Triângulo)
+                                </button>
+                                <button
+                                    onClick={() => setEditableText(prev => prev + '\n\n```mermaid\ngraph LR\n    classDef circleShape fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#fff;\n    Centro(("Centro (0,0)")) -->|Raio r| Bordo["Circunferência (2πr)"]\n    subgraph Circulo ["Área A = π · r²"]\n        Centro\n        Bordo\n    end\n    class Centro,Bordo circleShape;\n```\n')}
+                                    className="text-[10px] font-extrabold bg-teal-950 text-teal-300 border border-teal-800 px-2.5 py-1 rounded-lg hover:bg-teal-900 whitespace-nowrap flex-shrink-0 shadow-sm"
+                                    title="Inserir esquema de geometria circular com raio e área"
+                                >
+                                    🔵 Geometria (Círculo)
+                                </button>
+                                <button
+                                    onClick={() => setEditableText(prev => prev + '\n\n<svg viewBox="0 0 200 160" width="100%" height="160" xmlns="http://www.w3.org/2000/svg" style="background:#090d16; border-radius:16px; border:1px solid #1e293b; max-width:320px; margin:16px auto; display:block;">\n  <!-- Triângulo Geométrico -->\n  <polygon points="100,20 30,130 170,130" fill="rgba(99, 102, 241, 0.2)" stroke="#818cf8" stroke-width="3" />\n  <!-- Vértices -->\n  <circle cx="100" cy="20" r="5" fill="#f43f5e" />\n  <text x="100" y="12" fill="#fff" font-size="11" font-weight="bold" text-anchor="middle">A (0, h)</text>\n  <circle cx="30" cy="130" r="5" fill="#f43f5e" />\n  <text x="18" y="145" fill="#fff" font-size="11" font-weight="bold">B (0,0)</text>\n  <circle cx="170" cy="130" r="5" fill="#f43f5e" />\n  <text x="175" y="145" fill="#fff" font-size="11" font-weight="bold">C (b,0)</text>\n</svg>\n')}
+                                    className="text-[10px] font-extrabold bg-rose-950 text-rose-300 border border-rose-800 px-2.5 py-1 rounded-lg hover:bg-rose-900 whitespace-nowrap flex-shrink-0 shadow-sm"
+                                    title="Inserir desenho geométrico vetorial interativo em SVG puro"
+                                >
+                                    🎨 Desenho Geométrico SVG
+                                </button>
+                                <button
                                     onClick={() => setEditableText(prev => prev + '\n\n```mermaid\npie title "Distribuição de Dados / Estatística"\n    "Categoria A" : 45\n    "Categoria B" : 35\n    "Categoria C" : 20\n```\n')}
                                     className="text-[10px] font-extrabold bg-pink-950 text-pink-300 border border-pink-800 px-2.5 py-1 rounded-lg hover:bg-pink-900 whitespace-nowrap flex-shrink-0 shadow-sm"
                                     title="Inserir gráfico de pizza/proporção"
