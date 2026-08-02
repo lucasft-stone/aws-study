@@ -55,7 +55,7 @@ export default function StudyMaterial({
         return processed;
     };
 
-    // Função robusta para autocorrigir, indentar (4 espaços) e envolver qualquer JSON em blocos de código
+    // Função inteligente para formatar JSON, preservar scripts Python/JS e formatar blocos de código
     const fixAndFormatAllJsonInMarkdown = (rawText) => {
         if (!rawText) return '';
         let text = rawText.replace(/\\n/g, '\n');
@@ -108,54 +108,75 @@ export default function StudyMaterial({
             }
         };
 
-        // Algoritmo de Extração por Profundidade Balanceada ({ ... } ou [ ... ])
+        // 1. Re-formata blocos com cercas ``` preservando linguagens específicas como python, bash, javascript, sql
+        text = text.replace(/```([a-zA-Z0-9_-]*)\s*([\s\S]*?)```/gi, (fullMatch, lang, block) => {
+            const trimmedLang = lang.trim().toLowerCase();
+            const trimmedBlock = block.trim();
+
+            if (trimmedLang && trimmedLang !== 'json') {
+                return fullMatch; // Preserva Python, Bash, JS, SQL intactos
+            }
+
+            if (trimmedBlock.startsWith('{') || trimmedBlock.startsWith('[')) {
+                if (/def\s+|function|return\s+\{|import\s+/i.test(trimmedBlock)) {
+                    return '```python\n' + trimmedBlock + '\n```';
+                }
+                return '```json\n' + formatJsonBlockString(trimmedBlock) + '\n```';
+            }
+
+            return fullMatch;
+        });
+
+        // 2. Empacota funções Python/Scripts soltos sem cercas em blocos de código ```python
+        text = text.replace(/(^|\n)((?:def\s+[a-zA-Z0-9_]+\([\s\S]*?|import\s+[a-zA-Z0-9_]+[\s\S]*?)\n\s*return\s*\{[\s\S]*?\n\s*\})(\n|$)/gi, (fullMatch, prefix, codeBlock, suffix) => {
+            return prefix + '\n```python\n' + codeBlock.trim() + '\n```\n' + suffix;
+        });
+
+        // 3. Processa apenas JSONs isolados (Políticas IAM, Buckets, Configurações) sem fatiar código Python/JS
         let result = '';
         let i = 0;
 
         while (i < text.length) {
-            // Se encontrar o início de um bloco ```, preserva ou formatar se for JSON
             if (text.substr(i, 3) === '```') {
                 const endFence = text.indexOf('```', i + 3);
                 if (endFence !== -1) {
-                    const fullFence = text.substring(i, endFence + 3);
-                    const blockContent = fullFence.replace(/```(?:json)?/gi, '').replace(/```$/, '').trim();
-                    if (blockContent.startsWith('{') || blockContent.startsWith('[')) {
-                        result += '```json\n' + formatJsonBlockString(blockContent) + '\n```';
-                    } else {
-                        result += fullFence;
-                    }
+                    result += text.substring(i, endFence + 3);
                     i = endFence + 3;
                     continue;
                 }
             }
 
-            // Se encontrar uma chave '{' ou colchete '[' soltos iniciando uma estrutura
             if ((text[i] === '{' || text[i] === '[') && (i === 0 || text[i - 1] === '\n' || text[i - 1] === ' ' || text[i - 1] === ':')) {
-                const startChar = text[i];
-                const endChar = startChar === '{' ? '}' : ']';
-                let depth = 0;
-                let j = i;
-                let foundEnd = false;
+                const precedingSnippet = text.substring(Math.max(0, i - 80), i);
+                const isInsideCodeStatement = /def\s+|return\s+|function|class\s+|var\s+|const\s+/i.test(precedingSnippet);
 
-                while (j < text.length) {
-                    if (text[j] === startChar) depth++;
-                    else if (text[j] === endChar) {
-                        depth--;
-                        if (depth === 0) {
-                            j++;
-                            foundEnd = true;
-                            break;
+                if (!isInsideCodeStatement) {
+                    const startChar = text[i];
+                    const endChar = startChar === '{' ? '}' : ']';
+                    let depth = 0;
+                    let j = i;
+                    let foundEnd = false;
+
+                    while (j < text.length) {
+                        if (text[j] === startChar) depth++;
+                        else if (text[j] === endChar) {
+                            depth--;
+                            if (depth === 0) {
+                                j++;
+                                foundEnd = true;
+                                break;
+                            }
                         }
+                        j++;
                     }
-                    j++;
-                }
 
-                if (foundEnd && depth === 0) {
-                    const jsonCandidate = text.substring(i, j);
-                    if (jsonCandidate.length > 5 && (jsonCandidate.includes(':') || jsonCandidate.includes('"'))) {
-                        result += '\n```json\n' + formatJsonBlockString(jsonCandidate) + '\n```\n';
-                        i = j;
-                        continue;
+                    if (foundEnd && depth === 0) {
+                        const jsonCandidate = text.substring(i, j);
+                        if (jsonCandidate.length > 5 && (jsonCandidate.includes(':') || jsonCandidate.includes('"')) && !jsonCandidate.includes('def ')) {
+                            result += '\n```json\n' + formatJsonBlockString(jsonCandidate) + '\n```\n';
+                            i = j;
+                            continue;
+                        }
                     }
                 }
             }
