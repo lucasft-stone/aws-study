@@ -108,18 +108,19 @@ export default function StudyMaterial({
             }
         };
 
-        // 1. Re-formata blocos com cercas ``` preservando linguagens específicas como python, bash, javascript, sql
+        // 1. Re-formata blocos com cercas ``` preservando TODAS as linguagens de programação (python, bash, javascript, typescript, sql, dockerfile, yaml, terraform, java, csharp, go, rust, php, ruby, etc.)
         text = text.replace(/```([a-zA-Z0-9_-]*)\s*([\s\S]*?)```/gi, (fullMatch, lang, block) => {
             const trimmedLang = lang.trim().toLowerCase();
             const trimmedBlock = block.trim();
 
+            // Se possuir qualquer linguagem especificada (diferente de json), PRESERVA INTEIRO
             if (trimmedLang && trimmedLang !== 'json') {
-                return fullMatch; // Preserva Python, Bash, JS, SQL intactos
+                return fullMatch; 
             }
 
             if (trimmedBlock.startsWith('{') || trimmedBlock.startsWith('[')) {
-                if (/def\s+|function|return\s+\{|import\s+/i.test(trimmedBlock)) {
-                    return '```python\n' + trimmedBlock + '\n```';
+                if (/def\s+|function|return\s+\{|import\s+|public\s+|func\s+|class\s+/i.test(trimmedBlock)) {
+                    return '```code\n' + trimmedBlock + '\n```';
                 }
                 return '```json\n' + formatJsonBlockString(trimmedBlock) + '\n```';
             }
@@ -127,12 +128,12 @@ export default function StudyMaterial({
             return fullMatch;
         });
 
-        // 2. Empacota funções Python/Scripts soltos sem cercas em blocos de código ```python
+        // 2. Empacota funções Python/Scripts soltos sem cercas em blocos de código
         text = text.replace(/(^|\n)((?:def\s+[a-zA-Z0-9_]+\([\s\S]*?|import\s+[a-zA-Z0-9_]+[\s\S]*?)\n\s*return\s*\{[\s\S]*?\n\s*\})(\n|$)/gi, (fullMatch, prefix, codeBlock, suffix) => {
             return prefix + '\n```python\n' + codeBlock.trim() + '\n```\n' + suffix;
         });
 
-        // 3. Processa apenas JSONs isolados (Políticas IAM, Buckets, Configurações) sem fatiar código Python/JS
+        // 3. Processa apenas JSONs isolados (Políticas IAM, Buckets, Configurações) sem fatiar código de nenhuma linguagem
         let result = '';
         let i = 0;
 
@@ -147,8 +148,9 @@ export default function StudyMaterial({
             }
 
             if ((text[i] === '{' || text[i] === '[') && (i === 0 || text[i - 1] === '\n' || text[i - 1] === ' ' || text[i - 1] === ':')) {
-                const precedingSnippet = text.substring(Math.max(0, i - 80), i);
-                const isInsideCodeStatement = /def\s+|return\s+|function|class\s+|var\s+|const\s+/i.test(precedingSnippet);
+                const precedingSnippet = text.substring(Math.max(0, i - 120), i);
+                // Verifica palavras-chave de qualquer linguagem de programação (Python, JS, TS, Java, C#, Go, Rust, SQL, Bash, Terraform)
+                const isInsideCodeStatement = /def\s+|return\s+|function|class\s+|var\s+|const\s+|let\s+|public\s+|private\s+|void\s+|func\s+|import\s+|export\s+|package\s+|resource\s+|provider\s+|select\s+|insert\s+|update\s+|docker\s+|kubectl\s+|sudo\s+/i.test(precedingSnippet);
 
                 if (!isInsideCodeStatement) {
                     const startChar = text[i];
