@@ -113,7 +113,7 @@
   border-color: rgba(56, 189, 248, 0.3);
 }
 
-/* Bloco de Código (Pre) */
+/* Bloco de Código (Pre) com Preservação Estrita de Indentação */
 .markdown-content pre {
   background-color: #0f172a;
   color: #f8fafc;
@@ -125,16 +125,19 @@
   border: 1px solid #334155;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
   position: relative;
+  white-space: pre !important;
 }
 
 .markdown-content pre code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.875rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  font-size: 0.9rem;
   line-height: 1.6;
-  color: #e2e8f0;
+  color: #38bdf8;
   display: block;
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: pre !important;
+  word-break: normal;
+  tab-size: 4;
+  -moz-tab-size: 4;
 }
 
 /* Listas com marcador estilizado */

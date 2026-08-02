@@ -26,40 +26,79 @@ export default function StudyMaterial({
     const wordCount = studyContent ? studyContent.split(/\s+/).length : 0;
     const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 200));
 
-    // Função para autocorrigir e formatar blocos de JSON sem aspas ou desalinhados
-    const fixAndFormatJsonInMarkdown = (rawText) => {
+    // Função robusta para autocorrigir, indentar (4 espaços) e envolver qualquer JSON em blocos de código
+    const fixAndFormatAllJsonInMarkdown = (rawText) => {
         if (!rawText) return '';
         let text = rawText.replace(/\\n/g, '\n');
 
-        return text.replace(/```(?:json)?\s*([\s\S]*?)```/gi, (fullMatch, block) => {
-            let trimmed = block.trim();
-            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-                try {
-                    const obj = JSON.parse(trimmed);
-                    return '```json\n' + JSON.stringify(obj, null, 2) + '\n```';
-                } catch {
-                    try {
-                        let sanitized = trimmed
-                            .replace(/([{,]\s*)([a-zA-Z0-9_$]+)\s*:/g, '$1"$2":')
-                            .replace(/:\s*([a-zA-Z0-9_./-]+)(?=[,\s}\]])/g, (m, val) => {
-                                if (val === 'true' || val === 'false' || val === 'null' || !isNaN(val)) {
-                                    return `: ${val}`;
-                                }
-                                return `: "${val}"`;
-                            });
-                        const obj = JSON.parse(sanitized);
-                        return '```json\n' + JSON.stringify(obj, null, 2) + '\n```';
-                    } catch {
-                        return fullMatch;
-                    }
+        const manualIndentJson = (code) => {
+            const lines = code.split('\n');
+            let indentLevel = 0;
+            const result = [];
+
+            for (let line of lines) {
+                let trimmed = line.trim();
+                if (!trimmed) continue;
+
+                if (trimmed.startsWith('}') || trimmed.startsWith(']')) {
+                    indentLevel = Math.max(0, indentLevel - 1);
                 }
+
+                const indent = '    '.repeat(indentLevel);
+                result.push(indent + trimmed);
+
+                const opens = (trimmed.match(/[{[]/g) || []).length;
+                const closes = (trimmed.match(/[:}\]]/g) || []).filter(c => c === '}' || c === ']').length;
+                indentLevel += (opens - closes);
+                if (indentLevel < 0) indentLevel = 0;
+            }
+
+            return result.join('\n');
+        };
+
+        const formatJsonBlockString = (str) => {
+            let code = str.trim();
+            try {
+                const obj = JSON.parse(code);
+                return JSON.stringify(obj, null, 4);
+            } catch {
+                try {
+                    let sanitized = code
+                        .replace(/([{,]\s*)([a-zA-Z0-9_$]+)\s*:/g, '$1"$2":')
+                        .replace(/:\s*([a-zA-Z0-9_./-]+)(?=[,\s}\]])/g, (m, val) => {
+                            if (val === 'true' || val === 'false' || val === 'null' || !isNaN(val)) {
+                                return `: ${val}`;
+                            }
+                            return `: "${val}"`;
+                        });
+                    const obj = JSON.parse(sanitized);
+                    return JSON.stringify(obj, null, 4);
+                } catch {
+                    return manualIndentJson(code);
+                }
+            }
+        };
+
+        // 1. Processa blocos de código com cercas ```
+        text = text.replace(/```(?:json)?\s*([\s\S]*?)```/gi, (fullMatch, block) => {
+            const trimmed = block.trim();
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                return '```json\n' + formatJsonBlockString(trimmed) + '\n```';
             }
             return fullMatch;
         });
+
+        // 2. Processa estruturas JSON soltas { ... } no texto que não estejam dentro de ```
+        text = text.replace(/(^|\n)(\s*\{[\s\S]*?\n\s*\})(\n|$)/g, (fullMatch, prefix, jsonBlock, suffix) => {
+            if (jsonBlock.includes('```')) return fullMatch;
+            return prefix + '\n```json\n' + formatJsonBlockString(jsonBlock) + '\n```\n' + suffix;
+        });
+
+        return text;
     };
 
     // Formata o conteúdo Markdown
-    const processedContent = fixAndFormatJsonInMarkdown(studyContent || '');
+    const processedContent = fixAndFormatAllJsonInMarkdown(studyContent || '');
     const formattedContent = marked.parse(processedContent, { breaks: true, gfm: true });
 
     // Efeito para adicionar botões de copiar em todos os blocos de código
