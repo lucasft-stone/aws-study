@@ -139,6 +139,49 @@ Retorne um JSON com a chave "studyMaterial" contendo o texto formatado em Markdo
             };
             break;
 
+        case 'expand_study':
+            if (isAwsTopic) {
+                prompt = `${systemRole}
+O aluno já estudou o seguinte conteúdo base sobre "${topicTitle}":
+"""
+${topicContent}
+"""
+
+O aluno solicitou CONTINUAR E APROFUNDAR O ESTUDO sobre "${topicTitle}".
+Crie um MÓDULO DE APROFUNDAMENTO (Continuação Avançada).
+Diretrizes Obrigatórias:
+- NÃO repita o que já foi explicado no conteúdo base acima.
+- Traga novos conceitos avançados, cenários práticos de arquitetura de nuvem em produção, estudos de caso reais e dicas de nível profissional/DevOps.
+- Inclua novos comandos de CLI, diagramas Mermaid ou códigos bem indentados.
+- Comece o texto diretamente com um título claro de nível 2 (ex: ## 🚀 Módulo de Aprofundamento: Arquitetura & Práticas Avançadas).
+
+Retorne um JSON com a chave "studyMaterial" contendo o texto da continuação formatado em Markdown rico.`;
+            } else {
+                prompt = `${systemRole}
+O aluno já estudou o seguinte conteúdo base sobre "${topicTitle}":
+"""
+${topicContent}
+"""
+
+O aluno solicitou CONTINUAR E APROFUNDAR O ESTUDO.
+Crie um MÓDULO DE APROFUNDAMENTO (Continuação Avançada) focado no assunto "${topicTitle}".
+Diretrizes Obrigatórias:
+- NÃO repita conceitos já explicados no conteúdo base fornecido.
+- Traga tópicos avançados, exemplos práticos do mundo real, detalhamento passo a passo e códigos/diagramas complementares.
+- Comece o texto diretamente com um título claro de nível 2 (ex: ## 🚀 Módulo Avançado: Aprofundamento Prático).
+
+Retorne um JSON com a chave "studyMaterial" contendo o texto da continuação formatado em Markdown rico.`;
+            }
+
+            responseSchema = {
+                type: "OBJECT",
+                properties: {
+                    studyMaterial: { type: "STRING" }
+                },
+                required: ["studyMaterial"]
+            };
+            break;
+
         case 'quiz':
             if (isAwsTopic) {
                 prompt = `Você é um examinador oficial de certificações AWS.

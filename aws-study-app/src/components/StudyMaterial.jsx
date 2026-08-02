@@ -10,7 +10,7 @@ mermaid.initialize({
     startOnLoad: false,
     theme: 'dark',
     securityLevel: 'loose',
-    fontFamily: 'system-ui, sans-serif'
+    fontFamily: 'system-ui, -apple-system, sans-serif'
 });
 
 export default function StudyMaterial({
@@ -19,6 +19,8 @@ export default function StudyMaterial({
     user,
     studyContent,
     generateContent,
+    expandStudyMaterial,
+    isExpandingStudy = false,
     setAppState,
     handleFinishStudyAndStartQuiz,
     MAX_DAILY_REFRESHES
@@ -123,7 +125,7 @@ export default function StudyMaterial({
             const trimmedBlock = block.trim();
 
             if (trimmedLang && trimmedLang !== 'json') {
-                return fullMatch; // Preserva Python, Bash, JS, SQL, Mermaid intactos
+                return fullMatch; // Preserva Mermaid, Python, Bash, JS, SQL intactos
             }
 
             if (trimmedBlock.startsWith('{') || trimmedBlock.startsWith('[')) {
@@ -206,74 +208,99 @@ export default function StudyMaterial({
     useEffect(() => {
         if (!contentRef.current) return;
 
-        // 1. Processa gráficos Mermaid
-        const mermaidElements = contentRef.current.querySelectorAll('.language-mermaid, code.language-mermaid');
-        mermaidElements.forEach(async (codeEl, idx) => {
-            const pre = codeEl.closest('pre') || codeEl;
-            if (pre.dataset.mermaidRendered) return;
-            pre.dataset.mermaidRendered = 'true';
+        const renderContentElements = async () => {
+            // 1. Processa gráficos Mermaid PRIMEIRO e isoladamente
+            const mermaidElements = Array.from(contentRef.current.querySelectorAll('.language-mermaid, code.language-mermaid'));
+            for (let idx = 0; idx < mermaidElements.length; idx++) {
+                const codeEl = mermaidElements[idx];
+                const pre = codeEl.closest('pre') || codeEl;
 
-            const codeText = codeEl.innerText.trim();
-            if (!codeText) return;
+                if (pre.dataset.mermaidRendered) continue;
+                pre.dataset.mermaidRendered = 'true';
 
-            try {
-                const id = `mermaid-chart-${Date.now()}-${idx}`;
-                const { svg } = await mermaid.render(id, codeText);
-                
-                const chartWrapper = document.createElement('div');
-                chartWrapper.className = 'mermaid-chart-wrapper my-6 p-4 sm:p-6 bg-slate-900/90 rounded-2xl border border-slate-700/80 shadow-xl text-center overflow-x-auto flex justify-center items-center';
-                chartWrapper.innerHTML = svg;
+                let codeText = (codeEl.innerText || codeEl.textContent || '')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&lt;/g, '<')
+                    .replace(/&amp;/g, '&')
+                    .replace(/\\n/g, '\n')
+                    .trim();
 
-                pre.parentNode.replaceChild(chartWrapper, pre);
-            } catch (err) {
-                console.warn('Erro ao renderizar gráfico Mermaid:', err);
+                if (!codeText) continue;
+
+                try {
+                    const id = `mermaid-svg-${Date.now()}-${idx}`;
+                    const { svg } = await mermaid.render(id, codeText);
+                    
+                    const chartWrapper = document.createElement('div');
+                    chartWrapper.className = 'mermaid-chart-wrapper my-6 p-4 sm:p-6 bg-slate-900/95 rounded-2xl border border-indigo-900/60 shadow-2xl text-center overflow-x-auto flex flex-col justify-center items-center gap-2';
+                    chartWrapper.innerHTML = `
+                        <div class="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-2.5 py-1 rounded-full border border-indigo-800/60 mb-2">
+                            📊 Gráfico / Diagrama Interativo
+                        </div>
+                        <div class="w-full flex justify-center">${svg}</div>
+                    `;
+
+                    if (pre.parentNode) {
+                        pre.parentNode.replaceChild(chartWrapper, pre);
+                    }
+                } catch (err) {
+                    console.warn('Erro ao renderizar gráfico Mermaid:', err);
+                    pre.dataset.mermaidRendered = 'failed';
+                }
             }
-        });
 
-        // 2. Processa blocos de código regulares
-        const preElements = contentRef.current.querySelectorAll('pre');
-        preElements.forEach((pre) => {
-            if (pre.querySelector('.copy-code-btn') || pre.dataset.mermaidRendered) return;
+            // 2. Processa blocos de código regulares APÓS os gráficos
+            const preElements = contentRef.current.querySelectorAll('pre');
+            preElements.forEach((pre) => {
+                const codeEl = pre.querySelector('code');
+                const classList = codeEl ? Array.from(codeEl.classList) : [];
 
-            const codeEl = pre.querySelector('code');
-            const classList = codeEl ? Array.from(codeEl.classList) : [];
-            const langMatch = classList.find(c => c.startsWith('language-'));
-            const langName = langMatch ? langMatch.replace('language-', '').toUpperCase() : 'CODE';
+                if (classList.includes('language-mermaid') || pre.dataset.mermaidRendered) {
+                    return; // Ignora gráficos Mermaid
+                }
 
-            const topBar = document.createElement('div');
-            topBar.className = 'code-header-bar flex justify-between items-center bg-slate-950/80 px-4 py-2 rounded-t-2xl border-b border-slate-800 text-xs text-slate-400 select-none -mt-5 -mx-5 mb-3';
-            topBar.innerHTML = `
-                <div class="flex items-center gap-2">
-                    <span class="inline-flex gap-1.5">
-                        <span class="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block"></span>
-                        <span class="w-2.5 h-2.5 rounded-full bg-yellow-500/80 inline-block"></span>
-                        <span class="w-2.5 h-2.5 rounded-full bg-green-500/80 inline-block"></span>
-                    </span>
-                    <span class="font-extrabold text-[10px] tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-800/60 ml-2">
-                        ${langName}
-                    </span>
-                </div>
-            `;
+                if (pre.querySelector('.copy-code-btn')) return;
 
-            const copyBtn = document.createElement('button');
-            copyBtn.className = 'copy-code-btn bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold py-1 px-2.5 rounded-lg border border-slate-600 transition-all flex items-center gap-1 cursor-pointer';
-            copyBtn.innerHTML = '📋 Copiar';
+                const langMatch = classList.find(c => c.startsWith('language-'));
+                const langName = langMatch ? langMatch.replace('language-', '').toUpperCase() : 'CODE';
 
-            copyBtn.onclick = () => {
-                const codeText = codeEl?.innerText || pre.innerText;
-                navigator.clipboard.writeText(codeText).then(() => {
-                    copyBtn.innerHTML = '✅ Copiado!';
-                    setCopiedToast(true);
-                    setTimeout(() => {
-                        copyBtn.innerHTML = '📋 Copiar';
-                        setCopiedToast(false);
-                    }, 2500);
-                });
-            };
+                const topBar = document.createElement('div');
+                topBar.className = 'code-header-bar flex justify-between items-center bg-slate-950/80 px-4 py-2 rounded-t-2xl border-b border-slate-800 text-xs text-slate-400 select-none -mt-5 -mx-5 mb-3';
+                topBar.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block"></span>
+                            <span class="w-2.5 h-2.5 rounded-full bg-yellow-500/80 inline-block"></span>
+                            <span class="w-2.5 h-2.5 rounded-full bg-green-500/80 inline-block"></span>
+                        </span>
+                        <span class="font-extrabold text-[10px] tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-800/60 ml-2">
+                            ${langName}
+                        </span>
+                    </div>
+                `;
 
-            topBar.appendChild(copyBtn);
-            pre.insertBefore(topBar, pre.firstChild);
-        });
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-code-btn bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold py-1 px-2.5 rounded-lg border border-slate-600 transition-all flex items-center gap-1 cursor-pointer';
+                copyBtn.innerHTML = '📋 Copiar';
+
+                copyBtn.onclick = () => {
+                    const codeText = codeEl?.innerText || pre.innerText;
+                    navigator.clipboard.writeText(codeText).then(() => {
+                        copyBtn.innerHTML = '✅ Copiado!';
+                        setCopiedToast(true);
+                        setTimeout(() => {
+                            copyBtn.innerHTML = '📋 Copiar';
+                            setCopiedToast(false);
+                        }, 2500);
+                    });
+                };
+
+                topBar.appendChild(copyBtn);
+                pre.insertBefore(topBar, pre.firstChild);
+            });
+        };
+
+        renderContentElements();
     }, [formattedContent]);
 
     return (
@@ -326,6 +353,22 @@ export default function StudyMaterial({
                         </button>
                     </div>
 
+                    {/* Botão de Continuar e Aprofundar Estudo */}
+                    {expandStudyMaterial && (
+                        <button
+                            onClick={() => expandStudyMaterial(currentTrail)}
+                            disabled={refreshLimitReached || isExpandingStudy}
+                            title={refreshLimitReached ? 'Limite de atualizações/expansões atingido' : 'Continuar e aprofundar este estudo com novo módulo da IA'}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs py-2 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-40 flex items-center gap-1 shadow-sm"
+                        >
+                            {isExpandingStudy ? (
+                                <span className="flex items-center gap-1 animate-pulse">⚡ Aprofundando...</span>
+                            ) : (
+                                <span>⏩ Aprofundar Estudo</span>
+                            )}
+                        </button>
+                    )}
+
                     {/* Botão de Regerar Material com IA */}
                     <button
                         onClick={() => generateContent(currentTrail, 'study', true)}
@@ -349,20 +392,36 @@ export default function StudyMaterial({
             />
 
             {/* Rodapé de Ações */}
-            <div className="mt-6 flex flex-col sm:flex-row justify-between items-center gap-4 flex-shrink-0 pt-4 border-t border-slate-100 dark:border-gray-700">
+            <div className="mt-6 flex flex-col sm:flex-row justify-between items-center gap-3 flex-shrink-0 pt-4 border-t border-slate-100 dark:border-gray-700">
                 <button
                     onClick={() => setAppState('trail_options')}
-                    className="w-full sm:w-auto text-indigo-600 dark:text-indigo-400 font-extrabold hover:underline text-sm transition-colors"
+                    className="w-full sm:w-auto text-indigo-600 dark:text-indigo-400 font-extrabold hover:underline text-sm transition-colors text-center"
                 >
                     ← Voltar às Opções
                 </button>
                 
-                <button
-                    onClick={handleFinishStudyAndStartQuiz}
-                    className="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-extrabold py-3.5 px-7 rounded-2xl shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] text-sm flex items-center justify-center gap-2"
-                >
-                    <span>{userData.hearts <= 0 ? "Concluir Estudo & Restaurar Corações!" : "Concluir Estudo & Iniciar Quiz →"}</span>
-                </button>
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                    {expandStudyMaterial && (
+                        <button
+                            onClick={() => expandStudyMaterial(currentTrail)}
+                            disabled={refreshLimitReached || isExpandingStudy}
+                            className="w-full sm:w-auto bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-extrabold py-3 px-5 rounded-2xl border border-indigo-200 dark:border-indigo-800 transition-all text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                        >
+                            {isExpandingStudy ? (
+                                <span className="animate-pulse">⚡ Gerando próximo módulo avançado...</span>
+                            ) : (
+                                <span>⏩ Continuar & Aprofundar Conteúdo (IA)</span>
+                            )}
+                        </button>
+                    )}
+
+                    <button
+                        onClick={handleFinishStudyAndStartQuiz}
+                        className="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-extrabold py-3 px-6 rounded-2xl shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] text-xs sm:text-sm flex items-center justify-center gap-1.5"
+                    >
+                        <span>{userData.hearts <= 0 ? "Concluir Estudo & Restaurar Corações!" : "Concluir Estudo & Iniciar Quiz →"}</span>
+                    </button>
+                </div>
             </div>
         </div>
     );

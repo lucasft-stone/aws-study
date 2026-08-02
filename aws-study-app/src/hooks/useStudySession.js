@@ -176,6 +176,50 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         }
     };
 
+    const [isExpandingStudy, setIsExpandingStudy] = useState(false);
+
+    const expandStudyMaterial = async (trail) => {
+        const isUnlimitedUser = isRoot || userData?.isUnlimited === true;
+        const maxRefreshesAllowed = isUnlimitedUser ? Infinity : (userData?.customMaxDailyRefreshes ?? MAX_DAILY_REFRESHES);
+
+        const limitReached = (userData?.dailyRefreshes || 0) >= maxRefreshesAllowed;
+        if (limitReached && !isUnlimitedUser) {
+            setSessionError(`Você atingiu o limite de ${maxRefreshesAllowed} atualizações/expansões por dia.`);
+            return;
+        }
+
+        setSessionError('');
+        setIsExpandingStudy(true);
+
+        try {
+            const payloadTrail = {
+                ...trail,
+                content: studyContent || trail.content || ''
+            };
+
+            const parsedData = await fetchGeneratedStudyContent(payloadTrail, 'expand_study', selectedModel, isRoot);
+
+            if (parsedData && parsedData.studyMaterial) {
+                const newFullText = `${studyContent}\n\n---\n\n${parsedData.studyMaterial}`;
+                setStudyContent(newFullText);
+                setCurrentTrail(prev => ({ ...prev, cachedStudy: newFullText, cachedQuiz: null, cachedAnki: null }));
+
+                if (user?.uid) {
+                    await updateProgressCache(user.uid, trail.id, 'cachedStudy', newFullText);
+                    await updateProgressCache(user.uid, trail.id, 'cachedQuiz', null);
+                    await updateProgressCache(user.uid, trail.id, 'cachedAnki', null);
+                }
+
+                await updateUserData({ dailyRefreshes: (userData?.dailyRefreshes || 0) + 1 });
+            }
+        } catch (error) {
+            console.error("Erro ao expandir material de estudo:", error);
+            setSessionError(`Não foi possível expandir o estudo: ${error.message}`);
+        } finally {
+            setIsExpandingStudy(false);
+        }
+    };
+
     const handleCheckAnswer = () => {
         if (!selectedAnswer) return;
         const currentQ = quizQuestions[currentQuestionIndex];
@@ -248,6 +292,8 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         setSessionError,
         selectTrail,
         generateContent,
+        expandStudyMaterial,
+        isExpandingStudy,
         // Quiz states
         currentQuestionIndex,
         selectedAnswer,

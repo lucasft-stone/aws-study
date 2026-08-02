@@ -71,6 +71,8 @@ export default function App() {
         setSessionError,
         selectTrail,
         generateContent,
+        expandStudyMaterial,
+        isExpandingStudy,
         // Quiz states
         currentQuestionIndex,
         selectedAnswer,
@@ -286,6 +288,8 @@ export default function App() {
                         user={user}
                         studyContent={studyContent}
                         generateContent={generateContent}
+                        expandStudyMaterial={expandStudyMaterial}
+                        isExpandingStudy={isExpandingStudy}
                         setAppState={setAppState}
                         handleFinishStudyAndStartQuiz={handleFinishStudyAndStartQuiz}
                         ROOT_USER_UID={ROOT_USER_UID}
