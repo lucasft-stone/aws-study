@@ -471,17 +471,42 @@ export default function StudyMaterial({
 
                         // Persiste a edição do gráfico pelo seu índice ordinal no texto do material e no Firestore/localStorage
                         if (studyContent && editedCode) {
-                            let matchCount = 0;
-                            const mermaidBlockRegex = /```mermaid[\s\S]*?```/gi;
+                            const replaceNthDiagramInContent = (fullText, targetIdx, codeToInsert) => {
+                                if (!fullText) return fullText;
 
-                            const updatedFullText = studyContent.replace(mermaidBlockRegex, (match) => {
-                                if (matchCount === diagramIdx) {
-                                    matchCount++;
-                                    return '```mermaid\n' + editedCode + '\n```';
+                                const fencedRegex = /```\s*(?:mermaid|mermaid-js)?\s*([\s\S]*?)```/gi;
+                                let matchCount = 0;
+                                const replaced = fullText.replace(fencedRegex, (fullMatch, block) => {
+                                    const lower = (block || '').trim().toLowerCase();
+                                    if (lower.startsWith('mermaid') || lower.startsWith('graph') || lower.startsWith('flowchart') || lower.startsWith('sequencediagram') || lower.startsWith('mindmap') || lower.startsWith('classdiagram') || lower.startsWith('erdiagram') || lower.startsWith('gantt') || lower.startsWith('pie')) {
+                                        if (matchCount === targetIdx) {
+                                            matchCount++;
+                                            return '```mermaid\n' + codeToInsert + '\n```';
+                                        }
+                                        matchCount++;
+                                    }
+                                    return fullMatch;
+                                });
+
+                                if (matchCount > targetIdx) {
+                                    return replaced;
                                 }
-                                matchCount++;
-                                return match;
-                            });
+
+                                const unfencedRegex = /(?:^|\n)(?:mermaid\s*\n)?\s*(?:graph|flowchart|sequenceDiagram|pie|gantt|classDiagram|mindmap)[\s\S]*?(?=\n\n|\n#|$)/gi;
+                                let unfencedCount = 0;
+
+                                return fullText.replace(unfencedRegex, () => {
+                                    if (unfencedCount === targetIdx) {
+                                        unfencedCount++;
+                                        return '\n```mermaid\n' + codeToInsert + '\n```\n';
+                                    }
+                                    unfencedCount++;
+                                });
+                            };
+
+                            const updatedFullText = replaceNthDiagramInContent(studyContent, diagramIdx, editedCode);
+
+                            container.dataset.renderedCode = encodeURIComponent(editedCode);
 
                             if (updateStudyContent) {
                                 updateStudyContent(updatedFullText);
