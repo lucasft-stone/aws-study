@@ -311,8 +311,8 @@ export default function StudyMaterial({
             const placeholders = Array.from(contentRef.current.querySelectorAll('.mermaid-diagram-placeholder'));
             for (let idx = 0; idx < placeholders.length; idx++) {
                 const el = placeholders[idx];
-                if (el.dataset.mermaidRendered) continue;
-                el.dataset.mermaidRendered = 'true';
+                // Se o elemento já possui um gráfico SVG renderizado com sucesso, não precisa refazer
+                if (el.querySelector('.mermaid-svg-display svg')) continue;
                 el.dataset.diagramIndex = idx;
 
                 const rawEncoded = el.dataset.mermaidCode;
@@ -606,12 +606,21 @@ export default function StudyMaterial({
             });
         };
 
-        const timer1 = setTimeout(renderContentElements, 20);
-        const timer2 = setTimeout(renderContentElements, 150);
+        let isSubscribed = true;
+        const safeRender = () => {
+            if (isSubscribed) renderContentElements();
+        };
+
+        requestAnimationFrame(safeRender);
+        const timer1 = setTimeout(safeRender, 30);
+        const timer2 = setTimeout(safeRender, 150);
+        const timer3 = setTimeout(safeRender, 400);
 
         return () => {
+            isSubscribed = false;
             clearTimeout(timer1);
             clearTimeout(timer2);
+            clearTimeout(timer3);
         };
     }, [formattedContent, studyContent, currentTrail?.id, updateStudyContent, user?.uid]);
 
