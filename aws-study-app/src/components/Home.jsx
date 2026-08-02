@@ -19,6 +19,8 @@ export default function Home({
     signOutUser,
     setAppState,
     apiError,
+    themeMode,
+    toggleTheme,
     ENABLE_FIREBASE_AUTH,
     HIDE_EXISTING_TRAILS,
     MAX_DAILY_TRAIL_CREATIONS
@@ -90,15 +92,24 @@ export default function Home({
                     <span className="font-bold text-slate-800 dark:text-slate-100">{user?.displayName || "Usuário"}</span>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <span className="text-lg font-extrabold text-red-500 flex items-center gap-1">❤️ {userData.hearts}</span>
+                <div className="flex items-center gap-2 sm:gap-3">
+                    {toggleTheme && (
+                        <button
+                            onClick={toggleTheme}
+                            title="Alternar Tema do App (Claro / Escuro / Sistema)"
+                            className="bg-slate-100 dark:bg-gray-700/70 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-700 dark:text-slate-200 font-extrabold text-xs py-1.5 px-2.5 rounded-xl transition-all flex items-center gap-1 shadow-sm border border-slate-200 dark:border-gray-600"
+                        >
+                            {themeMode === 'light' ? '☀️ Claro' : themeMode === 'dark' ? '🌙 Escuro' : '💻 Sistema'}
+                        </button>
+                    )}
+                    <span className="text-base sm:text-lg font-extrabold text-red-500 flex items-center gap-1">❤️ {userData.hearts}</span>
                     {isRoot && (
                         <button 
                             onClick={() => {
                                 setAppState('admin');
                                 window.history.pushState({}, '', '/admin');
                             }}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-1.5 px-3 rounded-xl transition-transform hover:scale-105 shadow"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-1.5 px-2.5 rounded-xl transition-transform hover:scale-105 shadow"
                         >
                             👑 Admin
                         </button>

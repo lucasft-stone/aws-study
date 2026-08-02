@@ -24,6 +24,7 @@ import {
 } from './services/firebaseService';
 import { useAuthAndData } from './hooks/useAuthAndData';
 import { useStudySession } from './hooks/useStudySession';
+import { useThemeManager } from './hooks/useThemeManager';
 
 // Trilha Oficial de Módulos AWS
 const studyLevels = [
@@ -38,6 +39,8 @@ const studyLevels = [
 ];
 
 export default function App() {
+    const { themeMode, toggleTheme } = useThemeManager();
+
     const {
         user,
         userData,
@@ -236,6 +239,8 @@ export default function App() {
                         signOutUser={signOut}
                         setAppState={setAppState}
                         apiError={currentError}
+                        themeMode={themeMode}
+                        toggleTheme={toggleTheme}
                         ENABLE_FIREBASE_AUTH={ENABLE_FIREBASE_AUTH}
                         HIDE_EXISTING_TRAILS={HIDE_EXISTING_TRAILS}
                         ROOT_USER_UID={ROOT_USER_UID}
