@@ -729,6 +729,26 @@ export default function StudyMaterial({
                     {currentTrail?.title}
                 </h1>
 
+                {/* Banner de Feedback de Processamento por IA */}
+                {isExpandingStudy && (
+                    <div className="w-full p-4 mb-4 bg-indigo-950 text-indigo-100 border border-indigo-700/80 rounded-2xl shadow-xl flex items-center justify-between animate-fade-in">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xl animate-spin shadow-md">
+                                ⚙️
+                            </div>
+                            <div>
+                                <h4 className="font-extrabold text-xs sm:text-sm text-white flex items-center gap-2">
+                                    <span>🤖 A IA está aprofundando este estudo...</span>
+                                    <span className="bg-indigo-800 text-indigo-200 px-2 py-0.5 rounded-full text-[10px] animate-pulse">Por favor aguarde</span>
+                                </h4>
+                                <p className="text-[11px] sm:text-xs text-indigo-300 mt-0.5">
+                                    Sintetizando novos tópicos, exemplos práticos e fórmulas complementares.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Barra de Ações 100% Rolante na Horizontal (Suporta Gestos Touch, Trackpad e Roda do Mouse) */}
                 <div 
                     ref={toolbarScrollRef}

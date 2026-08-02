@@ -44,6 +44,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
     });
     const [isGeneratingPack, setIsGeneratingPack] = useState(false);
     const [generatingTrailId, setGeneratingTrailId] = useState(null);
+    const [packStepMessage, setPackStepMessage] = useState('');
 
     // Form de edição do usuário selecionado
     const [editForm, setEditForm] = useState({
@@ -170,18 +171,21 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
     const handleGenerateGlobalPack = async (trail) => {
         setIsGeneratingPack(true);
         setGeneratingTrailId(trail.id);
-        setActionMessage(`⚡ Gerando pacote completo (Estudo + Exercícios + Flashcards) para "${trail.title}" via IA... Aguarde alguns instantes.`);
+        setPackStepMessage(`📖 Etapa 1/3: Gerando Material Teórico com IA para "${trail.title}"... Por favor aguarde.`);
 
         try {
             const studyRes = await fetchGeneratedStudyContent(trail, 'study', 'gemini-2.5-flash', true);
             const studyText = studyRes?.studyContent || '';
 
+            setPackStepMessage(`📝 Etapa 2/3: Sintetizando Simulados e Exercícios de Múltipla Escolha... Por favor aguarde.`);
             const quizRes = await fetchGeneratedStudyContent(trail, 'quiz', 'gemini-2.5-flash', true);
             const questions = quizRes?.questions || [];
 
+            setPackStepMessage(`🗂️ Etapa 3/3: Estruturando Cartões Anki para Memorização Espaçada... Por favor aguarde.`);
             const ankiRes = await fetchGeneratedStudyContent(trail, 'anki', 'gemini-2.5-flash', true);
             const flashcards = ankiRes?.flashcards || [];
 
+            setPackStepMessage(`💾 Finalizando e Publicando Pacote para Todos os Alunos...`);
             await updateGlobalTrail(trail.id, {
                 cachedStudy: studyText,
                 cachedQuiz: questions,
@@ -190,7 +194,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
                 updatedAt: new Date()
             });
 
-            setActionMessage(`🚀 Pacote completo gerado e publicado com sucesso para todos os alunos!`);
+            setActionMessage(`🚀 Pacote completo gerado e publicado com sucesso para "${trail.title}"!`);
             await loadGlobalTrailsList();
             if (reloadTrails) reloadTrails();
         } catch (err) {
@@ -199,6 +203,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
         } finally {
             setIsGeneratingPack(false);
             setGeneratingTrailId(null);
+            setPackStepMessage('');
         }
     };
 
@@ -1138,6 +1143,13 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
                     trail={editingQuizTrail}
                     onClose={() => setEditingQuizTrail(null)}
                     onSave={handleSaveQuizQuestions}
+                />
+            )}
+            {/* Overlay de Geração de Conteúdo IA do Admin */}
+            {isGeneratingPack && (
+                <LoadingScreen
+                    text="🤖 Gerando Pacote Completo com IA"
+                    subtext={packStepMessage || "Por favor, aguarde alguns instantes enquanto a IA constrói o material de estudo, simulados e flashcards..."}
                 />
             )}
         </div>
