@@ -14,7 +14,7 @@ mermaid.initialize({
     fontFamily: 'system-ui, -apple-system, sans-serif'
 });
 
-const mermaidKeywords = ['graph', 'flowchart', 'sequenceDiagram', 'pie', 'gantt', 'classDiagram', 'stateDiagram-v2', 'stateDiagram', 'erDiagram', 'journey', 'mindmap', 'quadrantChart', 'architecture', 'c4Diagram', 'block-beta', 'block', 'gitGraph', 'timeline', 'sankey-beta', 'kanban'];
+const mermaidKeywords = ['graph', 'flowchart', 'sequenceDiagram', 'pie', 'gantt', 'classDiagram', 'stateDiagram-v2', 'stateDiagram', 'erDiagram', 'journey', 'mindmap', 'quadrantChart', 'architecture', 'c4Diagram', 'block-beta', 'block', 'gitGraph', 'timeline', 'sankey-beta', 'kanban', 'xychart-beta', 'xychart'];
 
 export default function StudyMaterial({
     currentTrail,
@@ -931,10 +931,24 @@ export default function StudyMaterial({
                                     ✨ Auto-Formatar Texto
                                 </button>
                                 <button
+                                    onClick={() => setEditableText(prev => prev + '\n\n```mermaid\nxychart-beta\n    title "Curva da Função f(x) e Derivada"\n    x-axis [0, 1, 2, 3, 4, 5]\n    y-axis "Valores f(x)" 0 --> 25\n    line [0, 1, 4, 9, 16, 25]\n    bar [0, 2, 4, 6, 8, 10]\n```\n')}
+                                    className="text-[10px] font-extrabold bg-blue-950 text-blue-300 border border-blue-800 px-2.5 py-1 rounded-lg hover:bg-blue-900 whitespace-nowrap flex-shrink-0 shadow-sm"
+                                    title="Plotar gráfico de curvas de função XY e séries de dados"
+                                >
+                                    📈 Plotar Gráfico (XY)
+                                </button>
+                                <button
+                                    onClick={() => setEditableText(prev => prev + '\n\n```mermaid\npie title "Distribuição de Dados / Estatística"\n    "Categoria A" : 45\n    "Categoria B" : 35\n    "Categoria C" : 20\n```\n')}
+                                    className="text-[10px] font-extrabold bg-pink-950 text-pink-300 border border-pink-800 px-2.5 py-1 rounded-lg hover:bg-pink-900 whitespace-nowrap flex-shrink-0 shadow-sm"
+                                    title="Inserir gráfico de pizza/proporção"
+                                >
+                                    🍕 Gráfico de Pizza
+                                </button>
+                                <button
                                     onClick={() => setEditableText(prev => prev + '\n\n```mermaid\ngraph TD\nA["Início"] --> B["Resultado"]\n```\n')}
                                     className="text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 px-2 py-1 rounded-lg hover:bg-indigo-900 whitespace-nowrap flex-shrink-0"
                                 >
-                                    + Diagrama Mermaid
+                                    + Fluxograma
                                 </button>
                                 <button
                                     onClick={() => setEditableText(prev => prev + '\n\n$$ \\sum_{i=1}^{n} a_i $$\n')}
