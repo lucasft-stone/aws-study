@@ -108,22 +108,63 @@ export default function StudyMaterial({
             }
         };
 
-        // 1. Processa blocos de código com cercas ```
-        text = text.replace(/```(?:json)?\s*([\s\S]*?)```/gi, (fullMatch, block) => {
-            const trimmed = block.trim();
-            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-                return '```json\n' + formatJsonBlockString(trimmed) + '\n```';
+        // Algoritmo de Extração por Profundidade Balanceada ({ ... } ou [ ... ])
+        let result = '';
+        let i = 0;
+
+        while (i < text.length) {
+            // Se encontrar o início de um bloco ```, preserva ou formatar se for JSON
+            if (text.substr(i, 3) === '```') {
+                const endFence = text.indexOf('```', i + 3);
+                if (endFence !== -1) {
+                    const fullFence = text.substring(i, endFence + 3);
+                    const blockContent = fullFence.replace(/```(?:json)?/gi, '').replace(/```$/, '').trim();
+                    if (blockContent.startsWith('{') || blockContent.startsWith('[')) {
+                        result += '```json\n' + formatJsonBlockString(blockContent) + '\n```';
+                    } else {
+                        result += fullFence;
+                    }
+                    i = endFence + 3;
+                    continue;
+                }
             }
-            return fullMatch;
-        });
 
-        // 2. Processa estruturas JSON soltas { ... } no texto que não estejam dentro de ```
-        text = text.replace(/(^|\n)(\s*\{[\s\S]*?\n\s*\})(\n|$)/g, (fullMatch, prefix, jsonBlock, suffix) => {
-            if (jsonBlock.includes('```')) return fullMatch;
-            return prefix + '\n```json\n' + formatJsonBlockString(jsonBlock) + '\n```\n' + suffix;
-        });
+            // Se encontrar uma chave '{' ou colchete '[' soltos iniciando uma estrutura
+            if ((text[i] === '{' || text[i] === '[') && (i === 0 || text[i - 1] === '\n' || text[i - 1] === ' ' || text[i - 1] === ':')) {
+                const startChar = text[i];
+                const endChar = startChar === '{' ? '}' : ']';
+                let depth = 0;
+                let j = i;
+                let foundEnd = false;
 
-        return text;
+                while (j < text.length) {
+                    if (text[j] === startChar) depth++;
+                    else if (text[j] === endChar) {
+                        depth--;
+                        if (depth === 0) {
+                            j++;
+                            foundEnd = true;
+                            break;
+                        }
+                    }
+                    j++;
+                }
+
+                if (foundEnd && depth === 0) {
+                    const jsonCandidate = text.substring(i, j);
+                    if (jsonCandidate.length > 5 && (jsonCandidate.includes(':') || jsonCandidate.includes('"'))) {
+                        result += '\n```json\n' + formatJsonBlockString(jsonCandidate) + '\n```\n';
+                        i = j;
+                        continue;
+                    }
+                }
+            }
+
+            result += text[i];
+            i++;
+        }
+
+        return result;
     };
 
     // Formata o conteúdo Markdown + JSON Indentado + Fórmulas KaTeX
