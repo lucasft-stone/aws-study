@@ -99,8 +99,8 @@ export function useAuthAndData() {
         }
     };
 
-    const addTrail = async (title, content) => {
-        const newTrail = { title, content, createdAt: new Date() };
+    const addTrail = async (title, content, topic = 'Minhas Trilhas Personalizadas') => {
+        const newTrail = { title, content, topic, createdAt: new Date() };
         const savedTrail = await createCustomTrail(user?.uid, newTrail);
         setCustomTrails(prev => [...prev, savedTrail]);
 

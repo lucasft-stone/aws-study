@@ -93,6 +93,7 @@ export default function App() {
     // Formulário de Criação de Trilha
     const [newTrailTitle, setNewTrailTitle] = useState('');
     const [newTrailContent, setNewTrailContent] = useState('');
+    const [newTrailTopic, setNewTrailTopic] = useState('Minhas Trilhas Personalizadas');
 
     const handleCreateTrailSubmit = async () => {
         if (!newTrailTitle || !newTrailContent) {
@@ -112,9 +113,10 @@ export default function App() {
         setAppState('loading');
         setSessionError('');
         try {
-            await addTrail(newTrailTitle, newTrailContent);
+            await addTrail(newTrailTitle, newTrailContent, newTrailTopic || 'Minhas Trilhas Personalizadas');
             setNewTrailTitle('');
             setNewTrailContent('');
+            setNewTrailTopic('Minhas Trilhas Personalizadas');
             setAppState('home');
         } catch (err) {
             setSessionError("Erro ao criar trilha: " + err.message);
@@ -230,6 +232,8 @@ export default function App() {
                         setNewTrailTitle={setNewTrailTitle}
                         newTrailContent={newTrailContent}
                         setNewTrailContent={setNewTrailContent}
+                        newTrailTopic={newTrailTopic}
+                        setNewTrailTopic={setNewTrailTopic}
                         handleCreateTrail={handleCreateTrailSubmit}
                     />
                 );
