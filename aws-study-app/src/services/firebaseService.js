@@ -245,7 +245,15 @@ export const updateCustomTrail = async (uid, trailId, updatedData) => {
  * Salva no Firestore o cache de conteúdo gerado (material de estudo, quiz ou anki).
  */
 export const updateProgressCache = async (uid, trailId, cacheKey, content) => {
-    if (!ENABLE_FIREBASE_AUTH || !db || !uid) return;
+    if (!ENABLE_FIREBASE_AUTH || !db) return;
+
+    if (trailId && (trailId.startsWith('global-') || cacheKey.startsWith('global_'))) {
+        const trailRef = doc(db, 'globalTrails', trailId);
+        await setDoc(trailRef, { [cacheKey]: content }, { merge: true });
+        return;
+    }
+
+    if (!uid) return;
     const isStudyLevel = trailId.startsWith('level-');
     const collectionName = isStudyLevel ? 'studyLevelProgress' : 'customTrails';
 
@@ -355,4 +363,62 @@ export const fetchUserAllData = async (targetUid) => {
     const progress = progressSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     return { trails, progress };
+};
+
+/**
+ * [GLOBAL TRAILS] Busca todas as trilhas globais/públicas criadas pelo Admin.
+ */
+export const fetchGlobalTrails = async () => {
+    if (!ENABLE_FIREBASE_AUTH || !db) return [];
+    try {
+        const trailsQuery = query(collection(db, 'globalTrails'));
+        const querySnapshot = await getDocs(trailsQuery);
+        return querySnapshot.docs.map(d => ({ id: d.id, isGlobal: true, ...d.data() }));
+    } catch (error) {
+        console.error("Erro ao buscar trilhas globais:", error);
+        return [];
+    }
+};
+
+/**
+ * [ADMIN] Cria uma nova trilha global disponível para todos os usuários.
+ */
+export const createGlobalTrail = async (trailData) => {
+    if (ENABLE_FIREBASE_AUTH && db) {
+        const globalTrailsRef = collection(db, 'globalTrails');
+        const docRef = await addDoc(globalTrailsRef, {
+            ...trailData,
+            isGlobal: true,
+            published: trailData.published ?? true,
+            allowUserExpansion: trailData.allowUserExpansion ?? true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        });
+        return { ...trailData, id: docRef.id, isGlobal: true };
+    }
+    return { ...trailData, id: `global-${Date.now()}`, isGlobal: true };
+};
+
+/**
+ * [ADMIN] Atualiza os dados de uma trilha global (ex: publicar/despublicar, bloquear expansão, salvar conteúdo gerado).
+ */
+export const updateGlobalTrail = async (trailId, updatedData) => {
+    if (ENABLE_FIREBASE_AUTH && db && trailId) {
+        const trailRef = doc(db, 'globalTrails', trailId);
+        await setDoc(trailRef, {
+            ...updatedData,
+            updatedAt: new Date()
+        }, { merge: true });
+    }
+};
+
+/**
+ * [ADMIN] Exclui uma trilha global do Firestore.
+ */
+export const deleteGlobalTrail = async (trailId) => {
+    if (ENABLE_FIREBASE_AUTH && db && trailId) {
+        const trailRef = doc(db, 'globalTrails', trailId);
+        await deleteDoc(trailRef);
+    }
+    return true;
 };

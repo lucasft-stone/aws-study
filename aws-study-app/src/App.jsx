@@ -56,6 +56,7 @@ export default function App() {
         removeTrail,
         removeTopic,
         clearCache,
+        reloadTrails,
         MAX_HEARTS
     } = useAuthAndData();
 
@@ -238,7 +239,7 @@ export default function App() {
 
         switch (appState) {
             case 'admin':
-                return <AdminPanel user={user} handleReturnHome={handleReturnHome} />;
+                return <AdminPanel user={user} handleReturnHome={handleReturnHome} reloadTrails={reloadTrails} />;
 
             case 'loading':
                 return <LoadingScreen text="Gerando conteúdo com IA..." />;

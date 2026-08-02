@@ -42,9 +42,22 @@ export default function Home({
         items: studyLevels
     };
 
-    // 2. Agrupamento dinâmico das Trilhas Personalizadas do usuário por Tópico
+    // 2. Separa as Trilhas Globais das Trilhas Pessoais do usuário
+    const globalTrailsList = customTrails.filter(t => t.isGlobal);
+    const userPersonalTrailsList = customTrails.filter(t => !t.isGlobal);
+
+    const globalTopic = globalTrailsList.length > 0 ? {
+        id: 'topic-global-official',
+        title: 'Trilhas Globais (Disponibilizadas pelo Admin)',
+        icon: '🌐',
+        description: `${globalTrailsList.length} trilha(s) oficiais disponibilizadas para todos os alunos`,
+        badge: 'Oficial Global',
+        items: globalTrailsList
+    } : null;
+
+    // 3. Agrupamento dinâmico das Trilhas Personalizadas do usuário por Tópico
     const customTopicsMap = {};
-    customTrails.forEach(trail => {
+    userPersonalTrailsList.forEach(trail => {
         const topicName = trail.topic || 'Minhas Trilhas Personalizadas';
         if (!customTopicsMap[topicName]) {
             customTopicsMap[topicName] = [];
@@ -70,6 +83,9 @@ export default function Home({
 
     // Lista de todos os tópicos disponíveis no sistema
     const allTopics = [];
+    if (globalTopic) {
+        allTopics.push(globalTopic);
+    }
     if (!HIDE_EXISTING_TRAILS || isRoot) {
         allTopics.push(officialTopic);
     }

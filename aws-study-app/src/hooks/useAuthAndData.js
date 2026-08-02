@@ -7,6 +7,7 @@ import {
     loadOrCreateUserData, 
     saveUserData, 
     fetchUserCustomTrails, 
+    fetchGlobalTrails,
     createCustomTrail, 
     updateCustomTrail,
     deleteCustomTrail, 
@@ -22,6 +23,19 @@ export function useAuthAndData() {
     const [authLoading, setAuthLoading] = useState(true);
     const [authError, setAuthError] = useState('');
 
+    const reloadTrails = useCallback(async (currentUser) => {
+        if (!currentUser) return;
+        try {
+            const userTrails = await fetchUserCustomTrails(currentUser.uid);
+            const globals = await fetchGlobalTrails();
+            const isRootAdmin = currentUser.email === 'lucasft.pwa@gmail.com' || currentUser.uid === 'Wafgz4MpWUXOf7TKREcC9yZ5k073';
+            const visibleGlobals = globals.filter(g => g.published !== false || isRootAdmin);
+            setCustomTrails([...visibleGlobals, ...userTrails]);
+        } catch (err) {
+            console.error("Erro ao recarregar trilhas:", err);
+        }
+    }, []);
+
     useEffect(() => {
         if (ENABLE_FIREBASE_AUTH) {
             const unsubscribe = subscribeToAuthChanges(async (currentUser) => {
@@ -30,8 +44,7 @@ export function useAuthAndData() {
                         setUser(currentUser);
                         const data = await loadOrCreateUserData(currentUser, MAX_HEARTS);
                         setUserData(data);
-                        const trails = await fetchUserCustomTrails(currentUser.uid);
-                        setCustomTrails(trails);
+                        await reloadTrails(currentUser);
                     } else {
                         setUser(null);
                         setUserData(null);
@@ -66,7 +79,7 @@ export function useAuthAndData() {
             ]);
             setAuthLoading(false);
         }
-    }, []);
+    }, [reloadTrails]);
 
     const updateUserData = useCallback(async (newData) => {
         setUserData(prev => {
@@ -143,6 +156,7 @@ export function useAuthAndData() {
         userData,
         customTrails,
         setCustomTrails,
+        reloadTrails: () => reloadTrails(user),
         authLoading,
         authError,
         setAuthError,

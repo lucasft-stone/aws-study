@@ -783,14 +783,18 @@ export default function StudyMaterial({
                     {expandStudyMaterial && (
                         <button
                             onClick={() => expandStudyMaterial(currentTrail)}
-                            disabled={refreshLimitReached || isExpandingStudy}
-                            title={refreshLimitReached ? 'Limite de atualizações/expansões atingido' : 'Continuar e aprofundar este estudo com novo módulo da IA'}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] sm:text-xs py-1.5 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-40 flex items-center gap-1 shadow-sm whitespace-nowrap flex-shrink-0"
+                            disabled={refreshLimitReached || isExpandingStudy || currentTrail?.allowUserExpansion === false}
+                            title={
+                                currentTrail?.allowUserExpansion === false 
+                                    ? 'Esta trilha oficial foi travada pelo Administrador para manter o conteúdo fixo (sem expansão por IA)' 
+                                    : refreshLimitReached ? 'Limite de atualizações/expansões atingido' : 'Continuar e aprofundar este estudo com novo módulo da IA'
+                            }
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] sm:text-xs py-1.5 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 flex items-center gap-1 shadow-sm whitespace-nowrap flex-shrink-0"
                         >
                             {isExpandingStudy ? (
                                 <span className="flex items-center gap-1 animate-pulse">⚡ Aprofundando...</span>
                             ) : (
-                                <span>⏩ Aprofundar (IA)</span>
+                                <span>{currentTrail?.allowUserExpansion === false ? '🔒 Aprofundamento Travado' : '⏩ Aprofundar (IA)'}</span>
                             )}
                         </button>
                     )}
@@ -798,8 +802,12 @@ export default function StudyMaterial({
                     {/* Botão de Regerar Material com IA */}
                     <button
                         onClick={() => generateContent(currentTrail, 'study', true)}
-                        disabled={refreshLimitReached}
-                        title={refreshLimitReached ? 'Limite de atualizações diárias atingido' : 'Regerar este material de estudo com IA'}
+                        disabled={refreshLimitReached || currentTrail?.allowUserExpansion === false}
+                        title={
+                            currentTrail?.allowUserExpansion === false 
+                                ? 'Trilha Oficial Travada pelo Admin' 
+                                : refreshLimitReached ? 'Limite de atualizações diárias atingido' : 'Regerar este material de estudo com IA'
+                        }
                         className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 py-1.5 px-3 rounded-xl transition-colors disabled:opacity-40 border border-indigo-100 dark:border-indigo-900/50 flex items-center gap-1 text-[11px] sm:text-xs font-extrabold whitespace-nowrap flex-shrink-0"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

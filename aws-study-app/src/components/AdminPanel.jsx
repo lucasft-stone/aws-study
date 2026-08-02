@@ -8,20 +8,40 @@ import {
     isOwnerAdmin,
     OWNER_EMAIL,
     deleteUserByAdmin,
-    deleteUserTrailByAdmin
+    deleteUserTrailByAdmin,
+    fetchGlobalTrails,
+    createGlobalTrail,
+    updateGlobalTrail,
+    deleteGlobalTrail
 } from '../services/firebaseService';
+import { fetchGeneratedStudyContent } from '../services/geminiService';
 
-export default function AdminPanel({ user, handleReturnHome }) {
+export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
     const isAuthorized = checkIsAdmin(user);
 
     const [usersList, setUsersList] = useState([]);
+    const [globalTrails, setGlobalTrails] = useState([]);
     const [loadingUsers, setLoadingUsers] = useState(true);
+    const [loadingGlobals, setLoadingGlobals] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedUser, setSelectedUser] = useState(null);
     const [userDataModal, setUserDataModal] = useState({ trails: [], progress: [] });
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [actionMessage, setActionMessage] = useState('');
-    const [activeTab, setActiveTab] = useState('settings'); // 'settings' | 'materials'
+    const [activeTab, setActiveTab] = useState('globals'); // 'globals' | 'users'
+
+    // Form de criação/edição de trilha global
+    const [showGlobalModal, setShowGlobalModal] = useState(false);
+    const [editingGlobalTrail, setEditingGlobalTrail] = useState(null);
+    const [globalForm, setGlobalForm] = useState({
+        title: '',
+        topic: 'Matemática',
+        description: '',
+        allowUserExpansion: true,
+        published: true
+    });
+    const [isGeneratingPack, setIsGeneratingPack] = useState(false);
+    const [generatingTrailId, setGeneratingTrailId] = useState(null);
 
     // Form de edição do usuário selecionado
     const [editForm, setEditForm] = useState({
@@ -52,11 +72,117 @@ export default function AdminPanel({ user, handleReturnHome }) {
         }
     };
 
+    const loadGlobalTrailsList = async () => {
+        setLoadingGlobals(true);
+        try {
+            const list = await fetchGlobalTrails();
+            setGlobalTrails(list);
+        } catch (err) {
+            console.error("Erro ao carregar trilhas globais:", err);
+        } finally {
+            setLoadingGlobals(false);
+        }
+    };
+
     useEffect(() => {
         if (isAuthorized) {
             loadUsers();
+            loadGlobalTrailsList();
         }
     }, [isAuthorized]);
+
+    const handleSaveGlobalTrail = async (e) => {
+        e.preventDefault();
+        if (!globalForm.title) return;
+
+        try {
+            if (editingGlobalTrail) {
+                await updateGlobalTrail(editingGlobalTrail.id, globalForm);
+                setActionMessage(`Trilha global "${globalForm.title}" atualizada com sucesso!`);
+            } else {
+                await createGlobalTrail(globalForm);
+                setActionMessage(`Trilha global "${globalForm.title}" criada para todos os alunos!`);
+            }
+            setShowGlobalModal(false);
+            setEditingGlobalTrail(null);
+            setGlobalForm({ title: '', topic: 'Matemática', description: '', allowUserExpansion: true, published: true });
+            await loadGlobalTrailsList();
+            if (reloadTrails) reloadTrails();
+        } catch (err) {
+            setActionMessage("Erro ao salvar trilha global: " + err.message);
+        }
+    };
+
+    const handleToggleGlobalPublish = async (trail) => {
+        const newStatus = !trail.published;
+        try {
+            await updateGlobalTrail(trail.id, { published: newStatus });
+            setActionMessage(`Status da trilha "${trail.title}" alterado para ${newStatus ? 'PUBLICADA' : 'RASCUNHO'}!`);
+            await loadGlobalTrailsList();
+            if (reloadTrails) reloadTrails();
+        } catch (err) {
+            setActionMessage("Erro ao alterar publicação: " + err.message);
+        }
+    };
+
+    const handleToggleGlobalExpansion = async (trail) => {
+        const newStatus = !(trail.allowUserExpansion ?? true);
+        try {
+            await updateGlobalTrail(trail.id, { allowUserExpansion: newStatus });
+            setActionMessage(`Permissão de expansão por IA para "${trail.title}" alterada para ${newStatus ? 'PERMITIDA' : 'BLOQUEADA'}!`);
+            await loadGlobalTrailsList();
+            if (reloadTrails) reloadTrails();
+        } catch (err) {
+            setActionMessage("Erro ao alterar permissão: " + err.message);
+        }
+    };
+
+    const handleDeleteGlobalTrailItem = async (trail) => {
+        if (!window.confirm(`Tem certeza que deseja excluir permanentemente a trilha global "${trail.title}"?`)) return;
+        try {
+            await deleteGlobalTrail(trail.id);
+            setActionMessage(`Trilha global "${trail.title}" excluída com sucesso!`);
+            await loadGlobalTrailsList();
+            if (reloadTrails) reloadTrails();
+        } catch (err) {
+            setActionMessage("Erro ao excluir trilha global: " + err.message);
+        }
+    };
+
+    const handleGenerateGlobalPack = async (trail) => {
+        setIsGeneratingPack(true);
+        setGeneratingTrailId(trail.id);
+        setActionMessage(`⚡ Gerando pacote completo (Estudo + Exercícios + Flashcards) para "${trail.title}" via IA... Aguarde alguns instantes.`);
+
+        try {
+            const studyRes = await fetchGeneratedStudyContent(trail, 'study', 'gemini-2.5-flash', true);
+            const studyText = studyRes?.studyContent || '';
+
+            const quizRes = await fetchGeneratedStudyContent(trail, 'quiz', 'gemini-2.5-flash', true);
+            const questions = quizRes?.questions || [];
+
+            const ankiRes = await fetchGeneratedStudyContent(trail, 'anki', 'gemini-2.5-flash', true);
+            const flashcards = ankiRes?.flashcards || [];
+
+            await updateGlobalTrail(trail.id, {
+                cachedStudy: studyText,
+                cachedQuiz: questions,
+                cachedAnki: flashcards,
+                published: true,
+                updatedAt: new Date()
+            });
+
+            setActionMessage(`🚀 Pacote completo gerado e publicado com sucesso para todos os alunos!`);
+            await loadGlobalTrailsList();
+            if (reloadTrails) reloadTrails();
+        } catch (err) {
+            console.error("Erro ao gerar pacote completo:", err);
+            setActionMessage("Erro ao gerar pacote de conteúdo: " + err.message);
+        } finally {
+            setIsGeneratingPack(false);
+            setGeneratingTrailId(null);
+        }
+    };
 
     if (!isAuthorized) {
         return (
@@ -294,33 +420,194 @@ export default function AdminPanel({ user, handleReturnHome }) {
                 </div>
             </div>
 
-            {/* Barra de Pesquisa e Recarga */}
-            <div className="w-full flex flex-col sm:flex-row gap-3 mb-6">
-                <input
-                    type="text"
-                    placeholder="Pesquisar por nome, e-mail ou UID..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="flex-grow p-3 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                />
+            {/* Navegação por Abas (Trilhas Globais vs Alunos) */}
+            <div className="w-full flex bg-slate-100 dark:bg-gray-800 p-1.5 rounded-2xl mb-6 border border-slate-200 dark:border-gray-700">
                 <button
-                    onClick={loadUsers}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+                    onClick={() => setActiveTab('globals')}
+                    className={`flex-1 py-3 px-4 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'globals' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
                 >
-                    🔄 Recarregar Lista
+                    <span>🌐 Trilhas Globais (Material para Todos)</span>
+                    <span className="bg-indigo-950 text-indigo-200 px-2 py-0.5 rounded-full text-[10px] font-mono">{globalTrails.length}</span>
+                </button>
+                <button
+                    onClick={() => setActiveTab('users')}
+                    className={`flex-1 py-3 px-4 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
+                >
+                    <span>👥 Gerenciamento de Alunos ({totalUsers})</span>
                 </button>
             </div>
 
-            {/* Tabela de Usuários */}
-            {loadingUsers ? (
-                <LoadingScreen text="Carregando lista de usuários do Firestore..." />
-            ) : filteredUsers.length === 0 ? (
-                <div className="w-full bg-white dark:bg-gray-800 p-8 rounded-2xl text-center text-slate-500 border border-slate-200 dark:border-gray-700">
-                    Nenhum usuário encontrado.
+            {/* ABA 1: TRILHAS GLOBAIS DA COMUNIDADE */}
+            {activeTab === 'globals' && (
+                <div className="w-full flex flex-col gap-6">
+                    <div className="w-full bg-white dark:bg-gray-800 p-6 rounded-3xl shadow border border-slate-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h2 className="text-xl font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
+                                <span>🌐 Trilhas de Estudo Globais</span>
+                            </h2>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                Crie conteúdos unificados para todos os alunos com material de estudo, quiz e flashcards pré-gerados via IA.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => {
+                                setEditingGlobalTrail(null);
+                                setGlobalForm({ title: '', topic: 'Matemática', description: '', allowUserExpansion: true, published: true });
+                                setShowGlobalModal(true);
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 px-5 rounded-2xl transition-all text-xs sm:text-sm shadow-md flex items-center gap-2"
+                        >
+                            <span>+ Nova Trilha Global</span>
+                        </button>
+                    </div>
+
+                    {loadingGlobals ? (
+                        <LoadingScreen text="Carregando trilhas globais..." />
+                    ) : globalTrails.length === 0 ? (
+                        <div className="w-full bg-white dark:bg-gray-800 p-12 rounded-3xl text-center text-slate-400 border border-slate-200 dark:border-gray-700">
+                            Nenhuma trilha global criada ainda. Clique no botão acima para disponibilizar um material oficial para todos os alunos.
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                            {globalTrails.map((trail) => {
+                                const hasPack = trail.cachedStudy && trail.cachedQuiz && trail.cachedAnki;
+                                const isGenerating = isGeneratingPack && generatingTrailId === trail.id;
+
+                                return (
+                                    <div key={trail.id} className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow border border-slate-100 dark:border-gray-700 flex flex-col justify-between gap-4 relative overflow-hidden">
+                                        <div>
+                                            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                                                <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${trail.published !== false ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800'}`}>
+                                                    {trail.published !== false ? '🌐 Publicada' : '📝 Rascunho'}
+                                                </span>
+
+                                                <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${trail.allowUserExpansion !== false ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 dark:border-blue-800' : 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-300 dark:border-purple-800'}`}>
+                                                    {trail.allowUserExpansion !== false ? '🔓 Alunos Podem Aprofundar (IA)' : '🔒 Trilha Travada (Sem IA)'}
+                                                </span>
+
+                                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                                                    {trail.topic || 'Geral'}
+                                                </span>
+                                            </div>
+
+                                            <h3 className="text-lg font-extrabold text-slate-800 dark:text-white leading-tight">
+                                                {trail.title}
+                                            </h3>
+
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                                                {trail.description || 'Sem descrição cadastrada.'}
+                                            </p>
+
+                                            {/* Status do Pacote de Conteúdo */}
+                                            <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs">
+                                                <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Pacote de Conteúdo Oficial:</span>
+                                                <div className="flex items-center gap-3 text-[11px]">
+                                                    <span className={trail.cachedStudy ? 'text-emerald-500 font-bold' : 'text-slate-400'}>
+                                                        {trail.cachedStudy ? '✅ Estudo Gerado' : '❌ Sem Estudo'}
+                                                    </span>
+                                                    <span className={trail.cachedQuiz ? 'text-emerald-500 font-bold' : 'text-slate-400'}>
+                                                        {trail.cachedQuiz ? `✅ ${trail.cachedQuiz.length || 0} Questões` : '❌ Sem Quiz'}
+                                                    </span>
+                                                    <span className={trail.cachedAnki ? 'text-emerald-500 font-bold' : 'text-slate-400'}>
+                                                        {trail.cachedAnki ? `✅ ${trail.cachedAnki.length || 0} Flashcards` : '❌ Sem Anki'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Ações da Trilha Global */}
+                                        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100 dark:border-gray-700">
+                                            <button
+                                                onClick={() => handleGenerateGlobalPack(trail)}
+                                                disabled={isGenerating}
+                                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-2 px-3 rounded-xl text-xs transition-all disabled:opacity-50 flex items-center gap-1 shadow-sm flex-1 justify-center"
+                                                title="Gerar automaticamente o Material de Estudo, Simulados e Flashcards com IA"
+                                            >
+                                                {isGenerating ? (
+                                                    <span className="animate-pulse">⚡ Gerando Pacote...</span>
+                                                ) : (
+                                                    <span>⚡ {hasPack ? 'Regerar Pacote IA' : 'Gerar Pacote Completo (IA)'}</span>
+                                                )}
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleToggleGlobalPublish(trail)}
+                                                className="bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-800 dark:text-slate-200 font-bold py-2 px-3 rounded-xl text-xs transition-colors"
+                                                title="Alternar visibilidade para todos os alunos"
+                                            >
+                                                {trail.published !== false ? '👁️ Despublicar' : '🚀 Publicar'}
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleToggleGlobalExpansion(trail)}
+                                                className="bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-800 dark:text-slate-200 font-bold py-2 px-3 rounded-xl text-xs transition-colors"
+                                                title="Permitir ou proibir que alunos aprofundem o estudo via IA"
+                                            >
+                                                {trail.allowUserExpansion !== false ? '🔒 Travar IA' : '🔓 Liberar IA'}
+                                            </button>
+
+                                            <button
+                                                onClick={() => {
+                                                    setEditingGlobalTrail(trail);
+                                                    setGlobalForm({
+                                                        title: trail.title || '',
+                                                        topic: trail.topic || 'Matemática',
+                                                        description: trail.description || '',
+                                                        allowUserExpansion: trail.allowUserExpansion !== false,
+                                                        published: trail.published !== false
+                                                    });
+                                                    setShowGlobalModal(true);
+                                                }}
+                                                className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold py-2 px-3 rounded-xl text-xs transition-colors"
+                                            >
+                                                ✏️ Editar
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleDeleteGlobalTrailItem(trail)}
+                                                className="bg-rose-950 text-rose-300 hover:bg-rose-900 border border-rose-800 font-bold py-2 px-3 rounded-xl text-xs transition-colors"
+                                            >
+                                                🗑️ Excluir
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
-            ) : (
-                <div className="w-full bg-white dark:bg-gray-800 rounded-2xl shadow border border-slate-100 dark:border-gray-700 overflow-hidden">
-                    <div className="overflow-x-auto">
+            )}
+
+            {/* ABA 2: GERENCIAMENTO DE ALUNOS & USUÁRIOS */}
+            {activeTab === 'users' && (
+                <div className="w-full flex flex-col gap-4">
+                    {/* Barra de Pesquisa e Recarga */}
+                    <div className="w-full flex flex-col sm:flex-row gap-3">
+                        <input
+                            type="text"
+                            placeholder="Pesquisar por nome, e-mail ou UID..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="flex-grow p-3 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                        />
+                        <button
+                            onClick={loadUsers}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+                        >
+                            🔄 Recarregar Lista
+                        </button>
+                    </div>
+
+                    {/* Tabela de Usuários quando a aba 'users' está ativa */}
+                    {loadingUsers ? (
+                        <LoadingScreen text="Carregando lista de usuários do Firestore..." />
+                    ) : filteredUsers.length === 0 ? (
+                        <div className="w-full bg-white dark:bg-gray-800 p-8 rounded-2xl text-center text-slate-500 border border-slate-200 dark:border-gray-700">
+                            Nenhum usuário encontrado.
+                        </div>
+                    ) : (
+                        <div className="w-full bg-white dark:bg-gray-800 rounded-2xl shadow border border-slate-100 dark:border-gray-700 overflow-hidden">
+                            <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50 dark:bg-gray-900/80 text-slate-400 font-bold uppercase tracking-wider text-xs border-b border-slate-100 dark:border-gray-700">
                                 <tr>
@@ -459,6 +746,8 @@ export default function AdminPanel({ user, handleReturnHome }) {
                         </table>
                     </div>
                 </div>
+            )}
+            </div>
             )}
 
             {/* Modal de Detalhes e Gerenciamento do Usuário Selecionado */}
@@ -716,6 +1005,103 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                 </div>
                             )}
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* Modal de Criação e Edição de Trilha Global */}
+            {showGlobalModal && (
+                <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-lg p-6 flex flex-col gap-4 border border-slate-100 dark:border-gray-700">
+                        <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-gray-700">
+                            <h3 className="text-xl font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
+                                <span>{editingGlobalTrail ? '✏️ Editar Trilha Global' : '🌐 Nova Trilha Global'}</span>
+                            </h3>
+                            <button
+                                onClick={() => setShowGlobalModal(false)}
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSaveGlobalTrail} className="flex flex-col gap-4">
+                            <div>
+                                <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">Título da Trilha Global *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Ex: Cálculo I: Limites e Derivadas"
+                                    value={globalForm.title}
+                                    onChange={(e) => setGlobalForm(prev => ({ ...prev, title: e.target.value }))}
+                                    className="w-full p-3 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">Tópico / Categoria</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ex: Matemática, AWS, Física, Programação"
+                                    value={globalForm.topic}
+                                    onChange={(e) => setGlobalForm(prev => ({ ...prev, topic: e.target.value }))}
+                                    className="w-full p-3 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">Descrição Breve para os Alunos</label>
+                                <textarea
+                                    rows="3"
+                                    placeholder="Ex: Material oficial completo com conceitos teóricos, fórmulas e exercícios resolvidos."
+                                    value={globalForm.description}
+                                    onChange={(e) => setGlobalForm(prev => ({ ...prev, description: e.target.value }))}
+                                    className="w-full p-3 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white resize-none"
+                                />
+                            </div>
+
+                            {/* Controles de Permissão e Publicação */}
+                            <div className="flex flex-col gap-3 p-4 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-slate-200 dark:border-gray-700">
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={globalForm.published}
+                                        onChange={(e) => setGlobalForm(prev => ({ ...prev, published: e.target.checked }))}
+                                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-xs font-extrabold text-slate-700 dark:text-slate-200">
+                                        🌐 Publicar imediatamente para todos os alunos
+                                    </span>
+                                </label>
+
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={globalForm.allowUserExpansion}
+                                        onChange={(e) => setGlobalForm(prev => ({ ...prev, allowUserExpansion: e.target.checked }))}
+                                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-xs font-extrabold text-slate-700 dark:text-slate-200">
+                                        🔓 Permitir que os alunos aprofundem o material e gerem mais exercícios com IA
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowGlobalModal(false)}
+                                    className="bg-slate-200 dark:bg-gray-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 font-bold px-4 py-2.5 rounded-xl text-xs"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs shadow-lg"
+                                >
+                                    💾 Salvar Trilha Global
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
