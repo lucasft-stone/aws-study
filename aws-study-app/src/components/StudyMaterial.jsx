@@ -26,8 +26,41 @@ export default function StudyMaterial({
     const wordCount = studyContent ? studyContent.split(/\s+/).length : 0;
     const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 200));
 
+    // Função para autocorrigir e formatar blocos de JSON sem aspas ou desalinhados
+    const fixAndFormatJsonInMarkdown = (rawText) => {
+        if (!rawText) return '';
+        let text = rawText.replace(/\\n/g, '\n');
+
+        return text.replace(/```(?:json)?\s*([\s\S]*?)```/gi, (fullMatch, block) => {
+            let trimmed = block.trim();
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                try {
+                    const obj = JSON.parse(trimmed);
+                    return '```json\n' + JSON.stringify(obj, null, 2) + '\n```';
+                } catch {
+                    try {
+                        let sanitized = trimmed
+                            .replace(/([{,]\s*)([a-zA-Z0-9_$]+)\s*:/g, '$1"$2":')
+                            .replace(/:\s*([a-zA-Z0-9_./-]+)(?=[,\s}\]])/g, (m, val) => {
+                                if (val === 'true' || val === 'false' || val === 'null' || !isNaN(val)) {
+                                    return `: ${val}`;
+                                }
+                                return `: "${val}"`;
+                            });
+                        const obj = JSON.parse(sanitized);
+                        return '```json\n' + JSON.stringify(obj, null, 2) + '\n```';
+                    } catch {
+                        return fullMatch;
+                    }
+                }
+            }
+            return fullMatch;
+        });
+    };
+
     // Formata o conteúdo Markdown
-    const formattedContent = marked.parse((studyContent || '').replace(/\\n/g, '\n'), { breaks: true, gfm: true });
+    const processedContent = fixAndFormatJsonInMarkdown(studyContent || '');
+    const formattedContent = marked.parse(processedContent, { breaks: true, gfm: true });
 
     // Efeito para adicionar botões de copiar em todos os blocos de código
     useEffect(() => {

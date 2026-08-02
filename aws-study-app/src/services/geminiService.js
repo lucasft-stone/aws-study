@@ -97,11 +97,14 @@ export const fetchGeneratedStudyContent = async (trail, type, selectedModel = 'g
             if (isAwsTopic) {
                 prompt = `${systemRole}
 Crie um material de estudo didático, estruturado e aprofundado sobre o tema abaixo.
-Diretrizes:
+Diretrizes Obrigatórias:
 - Use analogias do mundo real e cenários práticos de arquitetura de nuvem.
 - Inclua dicas específicas para os exames de certificação AWS (AWS Certified Cloud Practitioner / Solutions Architect).
 - Destaque boas práticas da AWS (AWS Well-Architected Framework: Segurança, Resiliência, Eficiência de Custos).
-- Todos os comandos de CLI (aws cli), JSON de políticas IAM, Terraform ou CloudFormation DEVEM estar formatados dentro de blocos de código Markdown (\`\`\`) bem indentados.
+- REGRA CRÍTICA DE FORMATAÇÃO DE CÓDIGO E JSON:
+  - Todo e qualquer exemplo de JSON (como políticas de IAM, Buckets, Payloads ou configurações) DEVE ser formatado dentro de blocos de código Markdown (\`\`\`json ... \`\`\`).
+  - O JSON DEVE ser um JSON VÁLIDO com aspas duplas em TODAS as chaves e valores string (ex: "Version": "2012-10-17", "Effect": "Allow"). Jamais envie chaves ou valores sem aspas!
+  - O JSON DEVE ter indentação perfeita de 2 espaços por nível e quebras de linha em cada propriedade.
 
 Conteúdo base do tópico:
 """${topicContent}"""
@@ -110,10 +113,12 @@ Retorne um JSON com a chave "studyMaterial" contendo o texto formatado em Markdo
             } else {
                 prompt = `${systemRole}
 Crie um material de estudo didático e aprofundado estritamente sobre o conteúdo fornecido pelo usuário.
-Diretrizes:
+Diretrizes Obrigatórias:
 - Foque EXCLUSIVAMENTE no assunto fornecido (${topicTitle}). NÃO mencione AWS ou nuvem AWS a menos que o conteúdo explicitamente peça.
 - Use analogias claras, exemplos práticos e explicações didáticas passo a passo.
-- Formate todos os comandos, trechos de código ou configurações dentro de blocos de código Markdown (\`\`\`) bem indentados.
+- REGRA CRÍTICA DE FORMATAÇÃO DE CÓDIGO E JSON:
+  - Todo e qualquer exemplo de código, comando ou JSON DEVE ser formatado dentro de blocos de código Markdown (\`\`\`json ... \`\`\` ou \`\`\`bash ... \`\`\`).
+  - Todo JSON DEVE ser um JSON VÁLIDO com aspas duplas obrigatoriamente em TODAS as chaves e valores string (ex: "key": "value") com indentação perfeita de 2 espaços.
 
 Conteúdo base fornecido pelo usuário:
 """${topicContent}"""
