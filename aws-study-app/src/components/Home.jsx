@@ -1,6 +1,7 @@
 import React from 'react';
 import StudyBot from './StudyBot';
 import CardButton from './CardButton';
+import PWAInstallPrompt from './PWAInstallPrompt';
 
 export default function Home({
     user,
@@ -48,6 +49,8 @@ export default function Home({
                 </div>
             </div>
             
+            <PWAInstallPrompt />
+
             <StudyBot status="idle" />
             <h1 className="text-4xl font-extrabold text-slate-800 dark:text-white mb-2">StudyBot</h1>
             <p className="text-slate-500 dark:text-slate-300 mb-6">
