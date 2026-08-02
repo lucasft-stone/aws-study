@@ -5,6 +5,8 @@ import {
     updateAdminUserSettings, 
     fetchUserAllData, 
     checkIsAdmin,
+    isOwnerAdmin,
+    OWNER_EMAIL,
     deleteUserByAdmin,
     deleteUserTrailByAdmin
 } from '../services/firebaseService';
@@ -25,6 +27,7 @@ export default function AdminPanel({ user, handleReturnHome }) {
     const [editForm, setEditForm] = useState({
         displayName: '',
         email: '',
+        isAdmin: false,
         isBlocked: false,
         isUnlimited: false,
         xp: 0,
@@ -74,12 +77,14 @@ export default function AdminPanel({ user, handleReturnHome }) {
     }
 
     const openUserModal = async (u) => {
+        const isOwner = isOwnerAdmin(u);
         setSelectedUser(u);
         setEditForm({
             displayName: u.displayName || '',
             email: u.email || '',
+            isAdmin: isOwner || u.isAdmin || false,
             isBlocked: u.isBlocked || false,
-            isUnlimited: u.isUnlimited || false,
+            isUnlimited: isOwner || u.isUnlimited || false,
             xp: u.xp || 0,
             hearts: u.hearts ?? 5,
             customMaxHearts: u.customMaxHearts ?? 5,
@@ -101,7 +106,36 @@ export default function AdminPanel({ user, handleReturnHome }) {
         }
     };
 
+    const handleToggleAdmin = async (u) => {
+        if (isOwnerAdmin(u)) {
+            setActionMessage("O Administrador Dono (lucasft.pwa@gmail.com) é inalterável!");
+            setTimeout(() => setActionMessage(''), 3000);
+            return;
+        }
+        const newAdminStatus = !u.isAdmin;
+        try {
+            await updateAdminUserSettings(u.uid, { 
+                isAdmin: newAdminStatus,
+                isUnlimited: newAdminStatus ? true : u.isUnlimited 
+            });
+            setUsersList(prev => prev.map(item => item.uid === u.uid ? { 
+                ...item, 
+                isAdmin: newAdminStatus, 
+                isUnlimited: newAdminStatus ? true : item.isUnlimited 
+            } : item));
+            setActionMessage(`Permissão de Administrador para ${u.displayName || u.email || u.uid} alterada!`);
+            setTimeout(() => setActionMessage(''), 3000);
+        } catch (err) {
+            setActionMessage("Erro ao alterar permissão de Admin: " + err.message);
+        }
+    };
+
     const handleToggleBlock = async (u) => {
+        if (isOwnerAdmin(u)) {
+            setActionMessage("O Administrador Dono (lucasft.pwa@gmail.com) não pode ser bloqueado!");
+            setTimeout(() => setActionMessage(''), 3000);
+            return;
+        }
         const newStatus = !u.isBlocked;
         try {
             await updateAdminUserSettings(u.uid, { isBlocked: newStatus });
@@ -126,11 +160,16 @@ export default function AdminPanel({ user, handleReturnHome }) {
     };
 
     const handleDeleteUser = async (u) => {
+        if (isOwnerAdmin(u)) {
+            setActionMessage("O Administrador Dono (lucasft.pwa@gmail.com) é inalterável e não pode ser excluído!");
+            setTimeout(() => setActionMessage(''), 3000);
+            return;
+        }
         const nameToDisplay = u.displayName || u.email || u.uid;
         const confirmDelete = confirm(`Tem certeza que deseja EXCLUIR PERMANENTEMENTE o usuário "${nameToDisplay}" e todas as suas trilhas? Esta ação não poderá ser desfeita.`);
         if (confirmDelete) {
             try {
-                await deleteUserByAdmin(u.uid);
+                await deleteUserByAdmin(u.uid, u);
                 setUsersList(prev => prev.filter(item => item.uid !== u.uid));
                 if (selectedUser?.uid === u.uid) {
                     setSelectedUser(null);
@@ -165,6 +204,12 @@ export default function AdminPanel({ user, handleReturnHome }) {
         e.preventDefault();
         if (!selectedUser) return;
 
+        if (isOwnerAdmin(selectedUser) && editForm.isBlocked) {
+            setActionMessage("O Administrador Dono (lucasft.pwa@gmail.com) não pode ser bloqueado!");
+            setTimeout(() => setActionMessage(''), 3000);
+            return;
+        }
+
         try {
             await updateAdminUserSettings(selectedUser.uid, editForm);
             setUsersList(prev => prev.map(item => item.uid === selectedUser.uid ? { ...item, ...editForm } : item));
@@ -198,7 +243,7 @@ export default function AdminPanel({ user, handleReturnHome }) {
                         <span>👑 Painel de Administração</span>
                     </h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                        Gerencie usuários, e-mails, nomes, limites, exclusões e inspecione trilhas de estudo.
+                        Gerencie administradores, permissões, limites, bloqueios e trilhas de estudo.
                     </p>
                 </div>
                 <button
@@ -282,17 +327,18 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                     <th className="p-4">Usuário / E-mail</th>
                                     <th className="p-4">XP / Vidas</th>
                                     <th className="p-4">Uso Hoje</th>
-                                    <th className="p-4">Status</th>
+                                    <th className="p-4">Status / Cargo</th>
                                     <th className="p-4 text-right">Ações</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-gray-700/60">
                                 {filteredUsers.map((u) => {
-                                    const isAdmin = checkIsAdmin(u);
-                                    const isUnl = u.isUnlimited || isAdmin;
+                                    const isOwner = isOwnerAdmin(u);
+                                    const isAdminUser = isOwner || u.isAdmin || checkIsAdmin(u);
+                                    const isUnl = u.isUnlimited || isAdminUser;
                                     const isBlk = u.isBlocked;
-                                    const displayName = u.displayName || (isAdmin ? 'Administrador' : 'Sem Nome Cadastrado');
-                                    const emailDisplay = u.email || (u.uid === 'fy9fGuWe5Kh4veCFkRbp6pN9MyK2' ? 'felps.st2020@gmail.com' : 'E-mail não sincronizado');
+                                    const displayName = u.displayName || (isOwner ? 'Lucas (Dono)' : 'Sem Nome Cadastrado');
+                                    const emailDisplay = u.email || (isOwner ? OWNER_EMAIL : 'E-mail não registrado');
 
                                     return (
                                         <tr key={u.uid} className="hover:bg-slate-50/50 dark:hover:bg-gray-700/30 transition-colors">
@@ -308,7 +354,7 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                                     <div>
                                                         <p className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                                                             <span>{displayName}</span>
-                                                            {isAdmin && <span className="text-xs text-amber-500 font-normal" title="Administrador Raiz">👑</span>}
+                                                            {isOwner && <span className="text-xs bg-amber-100 dark:bg-amber-900/70 text-amber-800 dark:text-amber-200 font-extrabold px-2 py-0.5 rounded-full">👑 Dono (Inalterável)</span>}
                                                         </p>
                                                         <p className="text-xs font-semibold text-indigo-500 dark:text-indigo-400">{emailDisplay}</p>
                                                         <p className="text-[10px] text-slate-400 font-mono mt-0.5">UID: {u.uid}</p>
@@ -334,7 +380,15 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                                             🔒 Bloqueado
                                                         </span>
                                                     )}
-                                                    {isUnl ? (
+                                                    {isOwner ? (
+                                                        <span className="bg-amber-100 dark:bg-amber-900/70 text-amber-800 dark:text-amber-200 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full">
+                                                            👑 Dono
+                                                        </span>
+                                                    ) : isAdminUser ? (
+                                                        <span className="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full">
+                                                            ⭐ Admin
+                                                        </span>
+                                                    ) : isUnl ? (
                                                         <span className="bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full">
                                                             ⚡ Ilimitado
                                                         </span>
@@ -356,13 +410,29 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                                         ⚡ {isUnl ? 'Ilimitado' : 'Limitar'}
                                                     </button>
 
-                                                    <button
-                                                        onClick={() => handleToggleBlock(u)}
-                                                        title={isBlk ? "Desbloquear Usuário" : "Bloquear Usuário"}
-                                                        className={`p-2 rounded-xl text-xs font-bold transition-colors ${isBlk ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-gray-700 dark:text-slate-200'}`}
-                                                    >
-                                                        {isBlk ? '🔓' : '🔒'}
-                                                    </button>
+                                                    {!isOwner ? (
+                                                        <button
+                                                            onClick={() => handleToggleAdmin(u)}
+                                                            title={u.isAdmin ? "Remover cargo de Admin" : "Promover a Administrador"}
+                                                            className={`p-2 rounded-xl text-xs font-bold transition-colors ${u.isAdmin ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-gray-700 dark:text-slate-200'}`}
+                                                        >
+                                                            ⭐ {u.isAdmin ? 'Admin' : '+ Admin'}
+                                                        </button>
+                                                    ) : (
+                                                        <span className="p-2 text-xs font-bold text-amber-600 dark:text-amber-400">
+                                                            👑 Protegido
+                                                        </span>
+                                                    )}
+
+                                                    {!isOwner && (
+                                                        <button
+                                                            onClick={() => handleToggleBlock(u)}
+                                                            title={isBlk ? "Desbloquear Usuário" : "Bloquear Usuário"}
+                                                            className={`p-2 rounded-xl text-xs font-bold transition-colors ${isBlk ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-gray-700 dark:text-slate-200'}`}
+                                                        >
+                                                            {isBlk ? '🔓' : '🔒'}
+                                                        </button>
+                                                    )}
 
                                                     <button
                                                         onClick={() => openUserModal(u)}
@@ -371,13 +441,15 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                                         ⚙️ Editar
                                                     </button>
 
-                                                    <button
-                                                        onClick={() => handleDeleteUser(u)}
-                                                        title="Excluir Usuário"
-                                                        className="bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/70 font-bold p-2 rounded-xl text-xs transition-colors"
-                                                    >
-                                                        🗑️
-                                                    </button>
+                                                    {!isOwner && (
+                                                        <button
+                                                            onClick={() => handleDeleteUser(u)}
+                                                            title="Excluir Usuário"
+                                                            className="bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/70 font-bold p-2 rounded-xl text-xs transition-colors"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -404,8 +476,9 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                     </div>
                                 )}
                                 <div>
-                                    <h3 className="text-xl font-bold text-slate-800 dark:text-white">
-                                        {editForm.displayName || selectedUser.displayName || "Usuário"}
+                                    <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                        <span>{editForm.displayName || selectedUser.displayName || "Usuário"}</span>
+                                        {isOwnerAdmin(selectedUser) && <span className="text-xs bg-amber-100 text-amber-800 font-extrabold px-2 py-0.5 rounded-full">👑 Dono</span>}
                                     </h3>
                                     <p className="text-xs font-semibold text-indigo-500">{editForm.email || selectedUser.email || selectedUser.uid}</p>
                                 </div>
@@ -463,30 +536,46 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {/* Toggles de Admin e Bloqueio */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                         <div className="p-4 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-700 flex items-center justify-between">
                                             <div>
-                                                <p className="font-bold text-sm">Acesso Ilimitado</p>
-                                                <p className="text-xs text-slate-400">Pula contadores diários e libera recursos.</p>
+                                                <p className="font-bold text-sm text-indigo-600 dark:text-indigo-400">Promover Admin</p>
+                                                <p className="text-[11px] text-slate-400">Acesso ao Painel Admin.</p>
                                             </div>
                                             <input
                                                 type="checkbox"
-                                                checked={editForm.isUnlimited}
-                                                onChange={(e) => setEditForm({ ...editForm, isUnlimited: e.target.checked })}
-                                                className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
+                                                disabled={isOwnerAdmin(selectedUser)}
+                                                checked={editForm.isAdmin || isOwnerAdmin(selectedUser)}
+                                                onChange={(e) => setEditForm({ ...editForm, isAdmin: e.target.checked })}
+                                                className="w-5 h-5 accent-indigo-600 rounded cursor-pointer disabled:opacity-50"
                                             />
                                         </div>
 
                                         <div className="p-4 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-700 flex items-center justify-between">
                                             <div>
-                                                <p className="font-bold text-sm text-red-600 dark:text-red-400">Bloquear Usuário</p>
-                                                <p className="text-xs text-slate-400">Impede o uso do app.</p>
+                                                <p className="font-bold text-sm">Acesso Ilimitado</p>
+                                                <p className="text-[11px] text-slate-400">Pula contadores diários.</p>
                                             </div>
                                             <input
                                                 type="checkbox"
-                                                checked={editForm.isBlocked}
+                                                checked={editForm.isUnlimited}
+                                                onChange={(e) => setEditForm({ ...editForm, isUnlimited: e.target.checked })}
+                                                className="w-5 h-5 accent-green-600 rounded cursor-pointer"
+                                            />
+                                        </div>
+
+                                        <div className="p-4 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-700 flex items-center justify-between">
+                                            <div>
+                                                <p className="font-bold text-sm text-red-600 dark:text-red-400">Bloquear Conta</p>
+                                                <p className="text-[11px] text-slate-400">Suspende o uso do app.</p>
+                                            </div>
+                                            <input
+                                                type="checkbox"
+                                                disabled={isOwnerAdmin(selectedUser)}
+                                                checked={editForm.isBlocked && !isOwnerAdmin(selectedUser)}
                                                 onChange={(e) => setEditForm({ ...editForm, isBlocked: e.target.checked })}
-                                                className="w-5 h-5 accent-red-600 rounded cursor-pointer"
+                                                className="w-5 h-5 accent-red-600 rounded cursor-pointer disabled:opacity-50"
                                             />
                                         </div>
                                     </div>
@@ -556,13 +645,15 @@ export default function AdminPanel({ user, handleReturnHome }) {
                                         >
                                             Salvar Alterações
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDeleteUser(selectedUser)}
-                                            className="bg-red-500 hover:bg-red-600 text-white font-bold px-5 rounded-2xl transition-colors text-sm flex items-center justify-center gap-1.5"
-                                        >
-                                            <span>🗑️ Excluir Usuário</span>
-                                        </button>
+                                        {!isOwnerAdmin(selectedUser) && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteUser(selectedUser)}
+                                                className="bg-red-500 hover:bg-red-600 text-white font-bold px-5 rounded-2xl transition-colors text-sm flex items-center justify-center gap-1.5"
+                                            >
+                                                <span>🗑️ Excluir Usuário</span>
+                                            </button>
+                                        )}
                                     </div>
                                 </form>
                             ) : loadingDetails ? (

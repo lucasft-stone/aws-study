@@ -23,26 +23,32 @@ export const ENABLE_FIREBASE_AUTH = import.meta.env.VITE_ENABLE_FIREBASE_AUTH ==
 export const HIDE_EXISTING_TRAILS = import.meta.env.VITE_HIDE_EXISTING_TRAILS === 'true';
 export const ROOT_USER_UID = import.meta.env.VITE_ROOT_USER_UID;
 
-/**
- * Lista oficial de Administradores / Usuários Ilimitados (por UID ou E-mail).
- */
-const BUILTIN_UNLIMITED_USERS = [
-    'Wafgz4MpWUXOf7TKREcC9yZ5k073',
-    'fy9fGuWe5Kh4veCFkRbp6pN9MyK2', // UID do Felps
-    'felps.st2020@gmail.com'
-];
+export const OWNER_EMAIL = 'lucasft.pwa@gmail.com';
+export const OWNER_UID = 'Wafgz4MpWUXOf7TKREcC9yZ5k073';
 
 /**
- * Verifica se um usuário possui permissões de Administrador / Ilimitado (via UID ou E-mail).
+ * Verifica se o usuário é o Administrador Principal/Dono (inalterável e protegido).
+ */
+export const isOwnerAdmin = (user) => {
+    if (!user) return false;
+    return user.uid === OWNER_UID || user.email === OWNER_EMAIL;
+};
+
+/**
+ * Verifica se um usuário possui permissões de Administrador / Ilimitado (via Dono, Firestore ou lista).
  */
 export const checkIsAdmin = (user) => {
     if (!user) return false;
+    if (isOwnerAdmin(user)) return true;
+    
+    // Administrador promovido via Firestore
+    if (user.isAdmin === true || user.isUnlimited === true) return true;
+
     const rawAdmins = import.meta.env.VITE_ROOT_USER_UID || '';
     const adminList = rawAdmins.split(',').map(s => s.trim()).filter(Boolean);
-    
-    const unlimitedSet = new Set([...BUILTIN_UNLIMITED_USERS, ...adminList]);
+    const builtInSet = new Set(['fy9fGuWe5Kh4veCFkRbp6pN9MyK2', 'felps.st2020@gmail.com', ...adminList]);
 
-    return unlimitedSet.has(user.uid) || (user.email && unlimitedSet.has(user.email));
+    return builtInSet.has(user.uid) || (user.email && builtInSet.has(user.email));
 };
 
 const firebaseConfig = {
@@ -285,8 +291,12 @@ export const updateAdminUserSettings = async (targetUid, settings) => {
 /**
  * [ADMIN] Exclui permanentemente um usuário e todos os seus dados e subcoleções do Firestore.
  */
-export const deleteUserByAdmin = async (targetUid) => {
+export const deleteUserByAdmin = async (targetUid, targetUser) => {
     if (!ENABLE_FIREBASE_AUTH || !db || !targetUid) return;
+
+    if (targetUid === OWNER_UID || targetUser?.email === OWNER_EMAIL || targetUser?.uid === OWNER_UID) {
+        throw new Error("O Administrador Dono (lucasft.pwa@gmail.com) é inalterável e não pode ser excluído!");
+    }
 
     // 1. Exclui todas as trilhas do usuário
     const trailsSnap = await getDocs(collection(db, 'users', targetUid, 'customTrails'));
