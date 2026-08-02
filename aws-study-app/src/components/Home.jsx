@@ -13,6 +13,7 @@ export default function Home({
     geminiModels,
     studyLevels,
     handleSelectTrail,
+    handleEditTrail,
     handleDeleteTrail,
     handleClearCache,
     signOutUser,
@@ -244,6 +245,7 @@ export default function Home({
                                         disabled={isLocked}
                                         onClick={() => handleSelectTrail(item)}
                                         icon={isLocked ? '🔒' : (item.icon || '📌')}
+                                        onEdit={activeTopic.id !== 'topic-aws' && handleEditTrail ? () => handleEditTrail(item) : undefined}
                                         onDelete={activeTopic.id !== 'topic-aws' ? () => handleDeleteTrail(item.id) : undefined}
                                     />
                                 );

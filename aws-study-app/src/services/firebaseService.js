@@ -226,6 +226,22 @@ export const deleteCustomTrail = async (uid, trailId) => {
 };
 
 /**
+ * Atualiza uma trilha personalizada existente no Firestore (título, conteúdo, tópico e limpa caches antigos).
+ */
+export const updateCustomTrail = async (uid, trailId, updatedData) => {
+    if (ENABLE_FIREBASE_AUTH && db && uid && trailId) {
+        const trailRef = doc(db, 'users', uid, 'customTrails', trailId);
+        await setDoc(trailRef, {
+            ...updatedData,
+            cachedStudy: null,
+            cachedQuiz: null,
+            cachedAnki: null,
+            updatedAt: new Date()
+        }, { merge: true });
+    }
+};
+
+/**
  * Salva no Firestore o cache de conteúdo gerado (material de estudo, quiz ou anki).
  */
 export const updateProgressCache = async (uid, trailId, cacheKey, content) => {

@@ -8,6 +8,7 @@ import {
     saveUserData, 
     fetchUserCustomTrails, 
     createCustomTrail, 
+    updateCustomTrail,
     deleteCustomTrail, 
     clearStudyCache 
 } from '../services/firebaseService';
@@ -112,6 +113,12 @@ export function useAuthAndData() {
         return savedTrail;
     };
 
+    const editTrail = async (trailId, title, content, topic) => {
+        const updatedData = { title, content, topic, cachedStudy: null, cachedQuiz: null, cachedAnki: null };
+        await updateCustomTrail(user?.uid, trailId, updatedData);
+        setCustomTrails(prev => prev.map(t => t.id === trailId ? { ...t, ...updatedData } : t));
+    };
+
     const removeTrail = async (trailId) => {
         await deleteCustomTrail(user?.uid, trailId);
         setCustomTrails(prev => prev.filter(t => t.id !== trailId));
@@ -135,6 +142,7 @@ export function useAuthAndData() {
         signIn,
         signOut,
         addTrail,
+        editTrail,
         removeTrail,
         clearCache,
         MAX_HEARTS

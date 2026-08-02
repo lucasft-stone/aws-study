@@ -48,6 +48,7 @@ export default function App() {
         signIn,
         signOut,
         addTrail,
+        editTrail,
         removeTrail,
         clearCache,
         MAX_HEARTS
@@ -90,10 +91,19 @@ export default function App() {
         MAX_DAILY_TRAIL_CREATIONS
     } = useStudySession({ user, userData, updateUserData, isRoot });
 
-    // Formulário de Criação de Trilha
+    // Formulário de Criação / Edição de Trilha
     const [newTrailTitle, setNewTrailTitle] = useState('');
     const [newTrailContent, setNewTrailContent] = useState('');
     const [newTrailTopic, setNewTrailTopic] = useState('Minhas Trilhas Personalizadas');
+    const [editingTrail, setEditingTrail] = useState(null);
+
+    const handleOpenEditTrail = (trail) => {
+        setEditingTrail(trail);
+        setNewTrailTitle(trail.title || '');
+        setNewTrailContent(trail.content || '');
+        setNewTrailTopic(trail.topic || 'Minhas Trilhas Personalizadas');
+        setAppState('create_trail');
+    };
 
     const handleCreateTrailSubmit = async () => {
         if (!newTrailTitle || !newTrailContent) {
@@ -101,25 +111,34 @@ export default function App() {
             return;
         }
 
-        const isUnlimitedUser = isRoot || userData?.isUnlimited === true;
-        const maxTrailsAllowed = isUnlimitedUser ? Infinity : (userData?.customMaxDailyTrailCreations ?? MAX_DAILY_TRAIL_CREATIONS);
-
-        const limitReached = (userData?.dailyTrailCreations || 0) >= maxTrailsAllowed;
-        if (limitReached && !isUnlimitedUser) {
-            setSessionError(`Você atingiu o limite de ${maxTrailsAllowed} nova(s) trilha(s) por dia.`);
-            return;
-        }
-
         setAppState('loading');
         setSessionError('');
         try {
-            await addTrail(newTrailTitle, newTrailContent, newTrailTopic || 'Minhas Trilhas Personalizadas');
+            if (editingTrail) {
+                // Modo Edição & Regeração
+                await editTrail(editingTrail.id, newTrailTitle, newTrailContent, newTrailTopic || 'Minhas Trilhas Personalizadas');
+                setEditingTrail(null);
+            } else {
+                // Modo Criação
+                const isUnlimitedUser = isRoot || userData?.isUnlimited === true;
+                const maxTrailsAllowed = isUnlimitedUser ? Infinity : (userData?.customMaxDailyTrailCreations ?? MAX_DAILY_TRAIL_CREATIONS);
+
+                const limitReached = (userData?.dailyTrailCreations || 0) >= maxTrailsAllowed;
+                if (limitReached && !isUnlimitedUser) {
+                    setSessionError(`Você atingiu o limite de ${maxTrailsAllowed} nova(s) trilha(s) por dia.`);
+                    setAppState('create_trail');
+                    return;
+                }
+
+                await addTrail(newTrailTitle, newTrailContent, newTrailTopic || 'Minhas Trilhas Personalizadas');
+            }
+
             setNewTrailTitle('');
             setNewTrailContent('');
             setNewTrailTopic('Minhas Trilhas Personalizadas');
             setAppState('home');
         } catch (err) {
-            setSessionError("Erro ao criar trilha: " + err.message);
+            setSessionError("Erro ao salvar trilha: " + err.message);
             setAppState('create_trail');
         }
     };
@@ -211,6 +230,7 @@ export default function App() {
                         geminiModels={GEMINI_MODELS}
                         studyLevels={studyLevels}
                         handleSelectTrail={selectTrail}
+                        handleEditTrail={handleOpenEditTrail}
                         handleDeleteTrail={handleDeleteTrailClick}
                         handleClearCache={handleClearCacheClick}
                         signOutUser={signOut}
@@ -226,7 +246,10 @@ export default function App() {
             case 'create_trail':
                 return (
                     <CreateTrail
-                        handleReturnHome={handleReturnHome}
+                        handleReturnHome={() => {
+                            setEditingTrail(null);
+                            handleReturnHome();
+                        }}
                         apiError={currentError}
                         newTrailTitle={newTrailTitle}
                         setNewTrailTitle={setNewTrailTitle}
@@ -234,6 +257,7 @@ export default function App() {
                         setNewTrailContent={setNewTrailContent}
                         newTrailTopic={newTrailTopic}
                         setNewTrailTopic={setNewTrailTopic}
+                        isEditing={!!editingTrail}
                         handleCreateTrail={handleCreateTrailSubmit}
                     />
                 );
@@ -245,6 +269,7 @@ export default function App() {
                         userData={userData}
                         generateContent={generateContent}
                         handleReturnHome={handleReturnHome}
+                        handleEditTrail={handleOpenEditTrail}
                     />
                 );
 

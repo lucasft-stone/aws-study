@@ -9,6 +9,7 @@ export default function CreateTrail({
     setNewTrailContent,
     newTrailTopic,
     setNewTrailTopic,
+    isEditing = false,
     handleCreateTrail
 }) {
     const [customTopicInput, setCustomTopicInput] = useState('');
@@ -37,7 +38,7 @@ export default function CreateTrail({
                 ← Voltar para Trilhas
             </button>
             <h1 className="text-3xl font-extrabold text-slate-800 dark:text-white text-center mb-6">
-                + Criar Nova Trilha de Estudo
+                {isEditing ? '✏️ Editar & Regerar Subtópico' : '+ Criar Nova Trilha de Estudo'}
             </h1>
             {apiError && (
                 <p className="text-red-500 text-sm mb-4 bg-red-100 dark:bg-red-900/30 p-3 rounded-lg border border-red-200">
@@ -105,7 +106,7 @@ export default function CreateTrail({
                 onClick={handleCreateTrail}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-4 rounded-2xl shadow-lg transition-transform hover:scale-[1.01] active:scale-[0.99]"
             >
-                🚀 Salvar Trilha no Tópico
+                {isEditing ? '💾 Salvar Alterações & Regerar Materiais' : '🚀 Salvar Trilha no Tópico'}
             </button>
         </div>
     );
