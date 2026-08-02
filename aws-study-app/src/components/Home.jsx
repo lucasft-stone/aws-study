@@ -2,6 +2,7 @@ import React from 'react';
 import StudyBot from './StudyBot';
 import CardButton from './CardButton';
 import PWAInstallPrompt from './PWAInstallPrompt';
+import { checkIsAdmin } from '../services/firebaseService';
 
 export default function Home({
     user,
@@ -19,10 +20,9 @@ export default function Home({
     apiError,
     ENABLE_FIREBASE_AUTH,
     HIDE_EXISTING_TRAILS,
-    ROOT_USER_UID,
     MAX_DAILY_TRAIL_CREATIONS
 }) {
-    const isRoot = user?.uid === ROOT_USER_UID;
+    const isRoot = checkIsAdmin(user);
     const creationLimitReached = userData.dailyTrailCreations >= MAX_DAILY_TRAIL_CREATIONS && !isRoot;
 
     return (

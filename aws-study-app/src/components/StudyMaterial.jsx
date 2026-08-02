@@ -1,5 +1,6 @@
 import React from 'react';
 import { marked } from 'marked';
+import { checkIsAdmin } from '../services/firebaseService';
 
 export default function StudyMaterial({
     currentTrail,
@@ -9,10 +10,9 @@ export default function StudyMaterial({
     generateContent,
     setAppState,
     handleFinishStudyAndStartQuiz,
-    ROOT_USER_UID,
     MAX_DAILY_REFRESHES
 }) {
-    const isRoot = user?.uid === ROOT_USER_UID;
+    const isRoot = checkIsAdmin(user);
     const refreshLimitReached = userData.dailyRefreshes >= MAX_DAILY_REFRESHES && !isRoot;
     
     // Garante que quebras de linha escapadas sejam tratadas e configura o marked

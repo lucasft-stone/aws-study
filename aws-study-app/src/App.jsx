@@ -18,7 +18,8 @@ import { GEMINI_MODELS } from './services/geminiService';
 import { 
     ENABLE_FIREBASE_AUTH, 
     HIDE_EXISTING_TRAILS, 
-    ROOT_USER_UID 
+    ROOT_USER_UID,
+    checkIsAdmin 
 } from './services/firebaseService';
 import { useAuthAndData } from './hooks/useAuthAndData';
 import { useStudySession } from './hooks/useStudySession';
@@ -51,7 +52,7 @@ export default function App() {
         MAX_HEARTS
     } = useAuthAndData();
 
-    const isRoot = user?.uid === ROOT_USER_UID;
+    const isRoot = checkIsAdmin(user);
 
     const {
         appState,
