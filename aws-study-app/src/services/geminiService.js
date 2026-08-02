@@ -75,15 +75,27 @@ export const callGeminiAPI = async (payload, selectedModel = 'gemini-2.5-flash',
 };
 
 /**
- * Gera conteúdo rico (Material de Estudo, Quiz de Simulados AWS ou Flashcards Anki).
+ * Gera conteúdo rico (Material de Estudo, Quiz de Simulados ou Flashcards Anki).
+ * Detecta se o tópico é específico de AWS ou se é um assunto genérico/customizado pelo usuário.
  */
 export const fetchGeneratedStudyContent = async (trail, type, selectedModel = 'gemini-2.5-flash', isRoot = false) => {
     let prompt = '';
     let responseSchema = null;
 
+    const topicTitle = trail.title || '';
+    const topicContent = trail.content || '';
+    const isAwsTopic = topicTitle.toLowerCase().includes('aws') || 
+                       topicContent.toLowerCase().includes('aws') || 
+                       (trail.id && trail.id.startsWith('level-'));
+
+    const systemRole = isAwsTopic
+        ? 'Você é um Instrutor especialista certificado AWS (AWS Certified Solutions Architect & DevOps Professional).'
+        : `Você é um Instrutor e Professor especialista altamente qualificado no assunto "${topicTitle || 'Estudos'}".`;
+
     switch (type) {
         case 'study':
-            prompt = `Você é um Instrutor especialista certificado AWS (AWS Certified Solutions Architect & DevOps Professional).
+            if (isAwsTopic) {
+                prompt = `${systemRole}
 Crie um material de estudo didático, estruturado e aprofundado sobre o tema abaixo.
 Diretrizes:
 - Use analogias do mundo real e cenários práticos de arquitetura de nuvem.
@@ -92,9 +104,22 @@ Diretrizes:
 - Todos os comandos de CLI (aws cli), JSON de políticas IAM, Terraform ou CloudFormation DEVEM estar formatados dentro de blocos de código Markdown (\`\`\`) bem indentados.
 
 Conteúdo base do tópico:
-"""${trail.content}"""
+"""${topicContent}"""
 
 Retorne um JSON com a chave "studyMaterial" contendo o texto formatado em Markdown rico.`;
+            } else {
+                prompt = `${systemRole}
+Crie um material de estudo didático e aprofundado estritamente sobre o conteúdo fornecido pelo usuário.
+Diretrizes:
+- Foque EXCLUSIVAMENTE no assunto fornecido (${topicTitle}). NÃO mencione AWS ou nuvem AWS a menos que o conteúdo explicitamente peça.
+- Use analogias claras, exemplos práticos e explicações didáticas passo a passo.
+- Formate todos os comandos, trechos de código ou configurações dentro de blocos de código Markdown (\`\`\`) bem indentados.
+
+Conteúdo base fornecido pelo usuário:
+"""${topicContent}"""
+
+Retorne um JSON com a chave "studyMaterial" contendo o texto formatado em Markdown rico.`;
+            }
 
             responseSchema = {
                 type: "OBJECT",
@@ -106,7 +131,8 @@ Retorne um JSON com a chave "studyMaterial" contendo o texto formatado em Markdo
             break;
 
         case 'quiz':
-            prompt = `Você é um examinador oficial de certificações AWS.
+            if (isAwsTopic) {
+                prompt = `Você é um examinador oficial de certificações AWS.
 Com base no material fornecido, gere 5 questões de simulado no padrão dos exames reais da AWS (baseadas em cenários práticos de empresas/arquitetura).
 Para cada pergunta, forneça:
 1. "question": A pergunta contextualizada em um cenário prático.
@@ -115,9 +141,23 @@ Para cada pergunta, forneça:
 4. "explanation": Explicação detalhada explicando POR QUE a resposta correta está certa E por que as outras alternativas seriam incorretas ou subótimas na AWS.
 
 Material base:
-"""${trail.content}"""
+"""${topicContent}"""
 
 Retorne o resultado estritamente no esquema JSON especificado.`;
+            } else {
+                prompt = `Você é um professor especialista criando um quiz de avaliação sobre o tema "${topicTitle}".
+Com base no material fornecido pelo usuário, gere 5 questões de múltipla escolha focadas estritamente no assunto. NÃO mencione AWS se o assunto for outro.
+Para cada pergunta, forneça:
+1. "question": A pergunta contextualizada e objetiva.
+2. "options": 4 alternativas (A, B, C, D).
+3. "correctAnswer": A alternativa exatamente igual a uma das opções em "options".
+4. "explanation": Explicação didática explicando por que a resposta correta está certa e por que as demais estão incorretas.
+
+Material base:
+"""${topicContent}"""
+
+Retorne o resultado estritamente no esquema JSON especificado.`;
+            }
 
             responseSchema = {
                 type: "OBJECT",
@@ -141,15 +181,27 @@ Retorne o resultado estritamente no esquema JSON especificado.`;
             break;
 
         case 'anki':
-            prompt = `Com base no material a seguir, gere 10 flashcards no estilo Anki (Repetição Espaçada) focado nos conceitos-chave de AWS.
+            if (isAwsTopic) {
+                prompt = `Com base no material a seguir, gere 10 flashcards no estilo Anki (Repetição Espaçada) focado nos conceitos-chave de AWS.
 Cada cartão deve conter:
-- "front": Uma pergunta concisa ou conceito chave (ex: "Qual o limite de tamanho de um objeto no S3 em um único upload?").
+- "front": Uma pergunta concisa ou conceito chave.
 - "back": A resposta exata e objetiva com uma breve justificativa técnica.
 
 Material base:
-"""${trail.content}"""
+"""${topicContent}"""
 
 Retorne o resultado no esquema JSON especificado.`;
+            } else {
+                prompt = `Com base no material fornecido sobre "${topicTitle}", gere 10 flashcards no estilo Anki (Repetição Espaçada) focados nos conceitos principais do tema. NÃO envolva AWS se o assunto for outro.
+Cada cartão deve conter:
+- "front": Uma pergunta concisa ou conceito chave.
+- "back": A resposta objetiva e clara.
+
+Material base:
+"""${topicContent}"""
+
+Retorne o resultado no esquema JSON especificado.`;
+            }
 
             responseSchema = {
                 type: "OBJECT",
