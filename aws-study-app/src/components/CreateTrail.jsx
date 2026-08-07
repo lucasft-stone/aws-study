@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { TOPIC_ICON_OPTIONS, resolveTopicIcon } from '../utils/topicHelpers';
 
 export default function CreateTrail({
     handleReturnHome,
@@ -9,6 +10,8 @@ export default function CreateTrail({
     setNewTrailContent,
     newTrailTopic,
     setNewTrailTopic,
+    newTrailIcon,
+    setNewTrailIcon,
     isEditing = false,
     handleCreateTrail
 }) {
@@ -59,7 +62,7 @@ export default function CreateTrail({
             {/* Escolha do Tópico Pai */}
             <div className="mb-4">
                 <label className="block text-xs font-bold uppercase text-slate-400 mb-1">
-                    📁 Selecione o Tópico / Categoria
+                    📁 Selecione a Categoria / Tópico
                 </label>
                 <select
                     value={isCreatingCustomTopic ? 'CUSTOM_NEW' : (newTrailTopic || 'Minhas Trilhas Personalizadas')}
@@ -67,6 +70,8 @@ export default function CreateTrail({
                     className="w-full p-3 bg-white dark:bg-gray-800 border-2 border-slate-200 dark:border-gray-700 rounded-xl font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                 >
                     <option value="Minhas Trilhas Personalizadas">📌 Minhas Trilhas Personalizadas</option>
+                    <option value="Matemática">📐 Matemática</option>
+                    <option value="Cálculo">🧮 Cálculo</option>
                     <option value="AWS - Cloud Computing">☁️ AWS - Cloud Computing</option>
                     <option value="Desenvolvimento & Programação">💻 Desenvolvimento & Programação</option>
                     <option value="DevOps & Infraestrutura">🚀 DevOps & Infraestrutura</option>
@@ -78,11 +83,41 @@ export default function CreateTrail({
                         type="text"
                         value={customTopicInput}
                         onChange={handleCustomTopicTextChange}
-                        placeholder="Digite o nome do novo tópico (ex: Python, Docker, Finanças...)"
+                        placeholder="Digite o nome do novo tópico (ex: Python, Cálculo, Direito...)"
                         className="w-full p-3 mt-2 border-2 border-indigo-300 dark:border-indigo-700 bg-white dark:bg-gray-800 rounded-xl font-semibold text-slate-800 dark:text-white"
                         autoFocus
                     />
                 )}
+            </div>
+
+            {/* Seletor de Ícone Visual */}
+            <div className="mb-4">
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-1 flex items-center justify-between">
+                    <span>🎨 Escolha um Ícone para o Tópico (Opcional)</span>
+                    <span className="text-[11px] font-extrabold text-indigo-500">
+                        {newTrailIcon ? `Ícone: ${newTrailIcon}` : `Auto: ${resolveTopicIcon(newTrailTopic, '')}`}
+                    </span>
+                </label>
+                <div className="grid grid-cols-8 gap-2 p-3 bg-white dark:bg-gray-800 rounded-xl border-2 border-slate-200 dark:border-gray-700 max-h-36 overflow-y-auto custom-scrollbar">
+                    {TOPIC_ICON_OPTIONS.map((item) => {
+                        const isSelected = newTrailIcon === item.icon;
+                        return (
+                            <button
+                                type="button"
+                                key={item.icon}
+                                onClick={() => setNewTrailIcon && setNewTrailIcon(isSelected ? '' : item.icon)}
+                                className={`p-2 text-xl sm:text-2xl rounded-xl transition-all border flex items-center justify-center ${
+                                    isSelected 
+                                        ? 'bg-indigo-600 border-indigo-500 scale-110 shadow-md text-white' 
+                                        : 'bg-slate-50 dark:bg-gray-900 border-slate-100 dark:border-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700'
+                                }`}
+                                title={item.label}
+                            >
+                                {item.icon}
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Título da Trilha / Subtópico */}

@@ -113,6 +113,7 @@ export default function App() {
     const [newTrailTitle, setNewTrailTitle] = useState('');
     const [newTrailContent, setNewTrailContent] = useState('');
     const [newTrailTopic, setNewTrailTopic] = useState('Minhas Trilhas Personalizadas');
+    const [newTrailIcon, setNewTrailIcon] = useState('');
     const [editingTrail, setEditingTrail] = useState(null);
 
     const handleOpenEditTrail = (trail) => {
@@ -120,6 +121,7 @@ export default function App() {
         setNewTrailTitle(trail.title || '');
         setNewTrailContent(trail.content || trail.cachedStudy || '');
         setNewTrailTopic(trail.topic || 'Minhas Trilhas Personalizadas');
+        setNewTrailIcon(trail.icon || '');
         setAppState('create_trail');
     };
 
@@ -141,12 +143,13 @@ export default function App() {
                     await updateGlobalTrail(editingTrail.id, {
                         title: newTrailTitle.trim(),
                         topic: newTrailTopic || 'Matemática',
+                        icon: newTrailIcon || '',
                         content: contentToSave,
                         cachedStudy: contentToSave,
                         updatedAt: new Date()
                     });
                 } else {
-                    await editTrail(editingTrail.id, newTrailTitle.trim(), contentToSave, newTrailTopic || 'Minhas Trilhas Personalizadas');
+                    await editTrail(editingTrail.id, newTrailTitle.trim(), contentToSave, newTrailTopic || 'Minhas Trilhas Personalizadas', newTrailIcon || '');
                 }
                 setEditingTrail(null);
             } else {
@@ -160,12 +163,13 @@ export default function App() {
                     return;
                 }
 
-                await addTrail(newTrailTitle.trim(), contentToSave, newTrailTopic || 'Minhas Trilhas Personalizadas');
+                await addTrail(newTrailTitle.trim(), contentToSave, newTrailTopic || 'Minhas Trilhas Personalizadas', newTrailIcon || '');
             }
 
             setNewTrailTitle('');
             setNewTrailContent('');
             setNewTrailTopic('Minhas Trilhas Personalizadas');
+            setNewTrailIcon('');
             if (reloadTrails) await reloadTrails();
             setAppState('home');
         } catch (err) {
@@ -309,6 +313,8 @@ export default function App() {
                         setNewTrailContent={setNewTrailContent}
                         newTrailTopic={newTrailTopic}
                         setNewTrailTopic={setNewTrailTopic}
+                        newTrailIcon={newTrailIcon}
+                        setNewTrailIcon={setNewTrailIcon}
                         isEditing={!!editingTrail}
                         handleCreateTrail={handleCreateTrailSubmit}
                     />

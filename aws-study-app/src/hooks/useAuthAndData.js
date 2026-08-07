@@ -113,8 +113,8 @@ export function useAuthAndData() {
         }
     };
 
-    const addTrail = async (title, content, topic = 'Minhas Trilhas Personalizadas') => {
-        const newTrail = { title, content, topic, createdAt: new Date() };
+    const addTrail = async (title, content, topic = 'Minhas Trilhas Personalizadas', icon = '') => {
+        const newTrail = { title, content, topic, icon, createdAt: new Date() };
         const savedTrail = await createCustomTrail(user?.uid, newTrail);
         setCustomTrails(prev => [...prev, savedTrail]);
 
@@ -126,8 +126,8 @@ export function useAuthAndData() {
         return savedTrail;
     };
 
-    const editTrail = async (trailId, title, content, topic) => {
-        const updatedData = { title, content, topic, cachedStudy: content, cachedQuiz: null, cachedAnki: null };
+    const editTrail = async (trailId, title, content, topic, icon = '') => {
+        const updatedData = { title, content, topic, icon, cachedStudy: content, cachedQuiz: null, cachedAnki: null };
         await updateCustomTrail(user?.uid, trailId, updatedData);
         setCustomTrails(prev => prev.map(t => t.id === trailId ? { ...t, ...updatedData } : t));
     };

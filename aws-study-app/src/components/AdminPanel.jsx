@@ -16,6 +16,12 @@ import {
 } from '../services/firebaseService';
 import { fetchGeneratedStudyContent } from '../services/geminiService';
 import QuizEditorModal from './QuizEditorModal';
+import { 
+    TOPIC_ICON_OPTIONS, 
+    resolveTopicIcon, 
+    getHideAwsTopicSetting, 
+    setHideAwsTopicSetting 
+} from '../utils/topicHelpers';
 
 export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
     const isAuthorized = checkIsAdmin(user);
@@ -30,6 +36,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [actionMessage, setActionMessage] = useState('');
     const [activeTab, setActiveTab] = useState('globals'); // 'globals' | 'users'
+    const [hideAwsTopic, setHideAwsTopic] = useState(() => getHideAwsTopicSetting());
 
     // Form de criação/edição de trilha global
     const [showGlobalModal, setShowGlobalModal] = useState(false);
@@ -38,6 +45,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
     const [globalForm, setGlobalForm] = useState({
         title: '',
         topic: 'Matemática',
+        icon: '',
         description: '',
         allowUserExpansion: true,
         published: true
@@ -472,16 +480,36 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
                                 Crie conteúdos unificados para todos os alunos com material de estudo, quiz e flashcards pré-gerados via IA.
                             </p>
                         </div>
-                        <button
-                            onClick={() => {
-                                setEditingGlobalTrail(null);
-                                setGlobalForm({ title: '', topic: 'Matemática', description: '', allowUserExpansion: true, published: true });
-                                setShowGlobalModal(true);
-                            }}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 px-5 rounded-2xl transition-all text-xs sm:text-sm shadow-md flex items-center gap-2"
-                        >
-                            <span>+ Nova Trilha Global</span>
-                        </button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                                onClick={() => {
+                                    const next = !hideAwsTopic;
+                                    setHideAwsTopic(next);
+                                    setHideAwsTopicSetting(next);
+                                    if (reloadTrails) reloadTrails();
+                                    setActionMessage(`Trilha oficial de exemplo da AWS ${next ? 'OCULTADA' : 'EXIBIDA'} na tela inicial dos alunos!`);
+                                }}
+                                className={`py-3 px-4 rounded-2xl transition-all text-xs sm:text-sm font-extrabold flex items-center gap-2 border shadow-sm ${
+                                    hideAwsTopic 
+                                        ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800' 
+                                        : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700'
+                                }`}
+                                title="Ocultar ou exibir a trilha de exemplo da AWS na página inicial"
+                            >
+                                <span>{hideAwsTopic ? '🙈 Exemplo AWS Ocultado' : '☁️ Ocultar Exemplo AWS'}</span>
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    setEditingGlobalTrail(null);
+                                    setGlobalForm({ title: '', topic: 'Matemática', icon: '', description: '', allowUserExpansion: true, published: true });
+                                    setShowGlobalModal(true);
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 px-5 rounded-2xl transition-all text-xs sm:text-sm shadow-md flex items-center gap-2"
+                            >
+                                <span>+ Nova Trilha Global</span>
+                            </button>
+                        </div>
                     </div>
 
                     {loadingGlobals ? (
@@ -1077,6 +1105,35 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
                                     onChange={(e) => setGlobalForm(prev => ({ ...prev, topic: e.target.value }))}
                                     className="w-full p-3 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1 flex items-center justify-between">
+                                    <span>🎨 Ícone Visual do Tópico (Opcional)</span>
+                                    <span className="text-indigo-500 font-extrabold text-[11px]">
+                                        {globalForm.icon ? globalForm.icon : `Auto: ${resolveTopicIcon(globalForm.topic, '')}`}
+                                    </span>
+                                </label>
+                                <div className="grid grid-cols-8 gap-1.5 p-2 bg-slate-50 dark:bg-gray-900 rounded-xl border border-slate-200 dark:border-gray-700 max-h-28 overflow-y-auto custom-scrollbar">
+                                    {TOPIC_ICON_OPTIONS.map((item) => {
+                                        const isSelected = globalForm.icon === item.icon;
+                                        return (
+                                            <button
+                                                type="button"
+                                                key={item.icon}
+                                                onClick={() => setGlobalForm(prev => ({ ...prev, icon: isSelected ? '' : item.icon }))}
+                                                className={`p-1.5 text-lg sm:text-xl rounded-lg transition-all border flex items-center justify-center ${
+                                                    isSelected 
+                                                        ? 'bg-indigo-600 border-indigo-500 scale-105 shadow text-white' 
+                                                        : 'bg-white dark:bg-gray-800 border-slate-200 dark:border-gray-700 hover:bg-slate-200 dark:hover:bg-gray-700'
+                                                }`}
+                                                title={item.label}
+                                            >
+                                                {item.icon}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
 
                             <div>

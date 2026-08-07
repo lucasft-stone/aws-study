@@ -3,6 +3,7 @@ import StudyBot from './StudyBot';
 import CardButton from './CardButton';
 import PWAInstallPrompt from './PWAInstallPrompt';
 import { checkIsAdmin } from '../services/firebaseService';
+import { resolveTopicIcon, getHideAwsTopicSetting } from '../utils/topicHelpers';
 
 export default function Home({
     user,
@@ -42,22 +43,9 @@ export default function Home({
         items: studyLevels
     };
 
-    // 2. Separa as Trilhas Globais das Trilhas Pessoais do usuário
-    const globalTrailsList = customTrails.filter(t => t.isGlobal);
-    const userPersonalTrailsList = customTrails.filter(t => !t.isGlobal);
-
-    const globalTopic = globalTrailsList.length > 0 ? {
-        id: 'topic-global-official',
-        title: 'Trilhas Globais (Disponibilizadas pelo Admin)',
-        icon: '🌐',
-        description: `${globalTrailsList.length} trilha(s) oficiais disponibilizadas para todos os alunos`,
-        badge: 'Oficial Global',
-        items: globalTrailsList
-    } : null;
-
-    // 3. Agrupamento dinâmico das Trilhas Personalizadas do usuário por Tópico
+    // 2. Agrupamento dinâmico de TODAS as Trilhas (Globais e Personalizadas) pelo Tópico desejado pelo usuário/admin
     const customTopicsMap = {};
-    userPersonalTrailsList.forEach(trail => {
+    customTrails.forEach(trail => {
         const topicName = trail.topic || 'Minhas Trilhas Personalizadas';
         if (!customTopicsMap[topicName]) {
             customTopicsMap[topicName] = [];
@@ -66,27 +54,27 @@ export default function Home({
     });
 
     const customTopicsList = Object.keys(customTopicsMap).map(topicName => {
-        let icon = '📌';
-        if (topicName.toLowerCase().includes('aws')) icon = '☁️';
-        else if (topicName.toLowerCase().includes('program') || topicName.toLowerCase().includes('dev')) icon = '💻';
-        else if (topicName.toLowerCase().includes('infra') || topicName.toLowerCase().includes('ops')) icon = '🚀';
+        const items = customTopicsMap[topicName];
+        const explicitIcon = items.find(i => i.icon)?.icon;
+        const icon = resolveTopicIcon(topicName, explicitIcon);
+        const hasGlobal = items.some(i => i.isGlobal);
 
         return {
             id: 'topic-custom-' + topicName,
             title: topicName,
             icon,
-            description: `${customTopicsMap[topicName].length} subtópico(s) de estudo`,
-            badge: 'Personalizado',
-            items: customTopicsMap[topicName]
+            description: `${items.length} subtópico(s) de estudo`,
+            badge: hasGlobal ? '🌐 Oficial' : 'Personalizado',
+            items
         };
     });
 
+    // 3. Verifica se a Trilha Exemplo AWS deve ser ocultada (configurado pelo Admin ou flag)
+    const isAwsTopicHidden = getHideAwsTopicSetting();
+
     // Lista de todos os tópicos disponíveis no sistema
     const allTopics = [];
-    if (globalTopic) {
-        allTopics.push(globalTopic);
-    }
-    if (!HIDE_EXISTING_TRAILS || isRoot) {
+    if (!isAwsTopicHidden && (!HIDE_EXISTING_TRAILS || isRoot)) {
         allTopics.push(officialTopic);
     }
     allTopics.push(...customTopicsList);
@@ -300,7 +288,8 @@ export default function Home({
                                         description={shortDescription}
                                         disabled={isLocked}
                                         onClick={() => handleSelectTrail(item)}
-                                        icon={isLocked ? '🔒' : (item.icon || '📌')}
+                                        icon={isLocked ? '🔒' : (item.icon || activeTopic.icon || '📌')}
+                                        badge={item.isGlobal ? '🌐 Oficial' : undefined}
                                         onEdit={activeTopic.id !== 'topic-aws' && handleEditTrail ? () => handleEditTrail(item) : undefined}
                                         onDelete={activeTopic.id !== 'topic-aws' ? () => handleDeleteTrail(item.id) : undefined}
                                     />
