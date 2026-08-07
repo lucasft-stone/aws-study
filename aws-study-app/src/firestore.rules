@@ -7,30 +7,32 @@ service cloud.firestore {
       return request.auth != null && (
         request.auth.uid == 'Wafgz4MpWUXOf7TKREcC9yZ5k073' ||
         request.auth.uid == 'fy9fGuWe5Kh4veCFkRbp6pN9MyK2' ||
-        request.auth.token.email == 'felps.st2020@gmail.com'
+        request.auth.token.email == 'felps.st2020@gmail.com' ||
+        request.auth.token.email == 'lucasft.pwa@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isUnlimited == true))
       );
     }
 
     // Regras para a coleção de trilhas globais 'globalTrails' (públicas para todos os alunos)
     match /globalTrails/{trailId} {
       allow read: if request.auth != null;
-      allow write, create, update, delete: if isAdmin();
+      allow write, create, update, delete: if request.auth != null;
     }
 
     // Regras para a coleção 'users'
     match /users/{userId} {
-      // Permite que o próprio usuário leia/atualize seus dados, OU o Administrador leia/atualize qualquer usuário.
-      allow read, update, delete: if (request.auth != null && request.auth.uid == userId) || isAdmin();
-      allow create: if request.auth != null;
+      allow read, write, create, update, delete: if request.auth != null;
 
       // Regra para a subcoleção 'customTrails'
       match /customTrails/{trailId} {
-        allow read, write, delete: if (request.auth != null && request.auth.uid == userId) || isAdmin();
+        allow read, write, create, update, delete: if request.auth != null;
       }
 
       // Regra para a subcoleção 'studyLevelProgress'
       match /studyLevelProgress/{levelId} {
-        allow read, write, delete: if (request.auth != null && request.auth.uid == userId) || isAdmin();
+        allow read, write, create, update, delete: if request.auth != null;
       }
     }
   }
