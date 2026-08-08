@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import LoadingScreen from './LoadingScreen';
 import StudyBot from './StudyBot';
 import QuizEditorModal from './QuizEditorModal';
+import TimedExamModal from './TimedExamModal';
 import { checkIsAdmin } from '../services/firebaseService';
 
 export default function Quiz({
@@ -22,6 +23,7 @@ export default function Quiz({
     onSaveQuestions
 }) {
     const [isEditingQuiz, setIsEditingQuiz] = useState(false);
+    const [showTimedExam, setShowTimedExam] = useState(false);
     const isAdmin = checkIsAdmin(user);
 
     if (!quizQuestions || quizQuestions.length === 0) {
@@ -47,6 +49,14 @@ export default function Quiz({
                     />
                 </div>
                 
+                <button
+                    onClick={() => setShowTimedExam(true)}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-[11px] px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 shadow flex-shrink-0"
+                    title="Iniciar prova com cronômetro e mapa de revisão"
+                >
+                    ⏱️ Modo Simulado
+                </button>
+
                 {isAdmin && (
                     <button
                         onClick={() => setIsEditingQuiz(true)}
@@ -142,6 +152,15 @@ export default function Quiz({
                     onSave={async (newQuestions) => {
                         if (onSaveQuestions) await onSaveQuestions(newQuestions);
                     }}
+                />
+            )}
+
+            {/* Modal de Simulado Cronometrado */}
+            {showTimedExam && (
+                <TimedExamModal
+                    questions={quizQuestions}
+                    trailTitle={currentTrail?.title}
+                    onClose={() => setShowTimedExam(false)}
                 />
             )}
         </div>

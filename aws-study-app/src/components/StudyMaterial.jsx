@@ -3,6 +3,7 @@ import { marked } from 'marked';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
+import StudyNotebookModal from './StudyNotebookModal';
 import { checkIsAdmin, updateProgressCache } from '../services/firebaseService';
 
 // Inicialização limpa do Mermaid para gráficos e diagramas sem banners ruidosos de erro
@@ -37,10 +38,81 @@ export default function StudyMaterial({
     const [copiedToast, setCopiedToast] = useState(false);
     const [isEditingFullMaterial, setIsEditingFullMaterial] = useState(false);
     const [isFocusMode, setIsFocusMode] = useState(false); // Modo Foco Zen / Fullscreen
+    const [showNotebookModal, setShowNotebookModal] = useState(false);
     const [mobileEditorTab, setMobileEditorTab] = useState('edit'); // 'edit' ou 'preview' para mobile
     const [editableText, setEditableText] = useState(studyContent || '');
+    
+    // Leitor de Voz IA (Text-to-Speech)
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [isSpeechPaused, setIsSpeechPaused] = useState(false);
+    const [speechRate, setSpeechRate] = useState(1.0);
+
     const contentRef = useRef(null);
     const toolbarScrollRef = useRef(null);
+
+    // Finaliza fala ao desmontar o componente
+    useEffect(() => {
+        return () => {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+        };
+    }, []);
+
+    const handleToggleSpeech = () => {
+        if (!('speechSynthesis' in window)) {
+            alert("Seu navegador não suporta a função de leitura por voz.");
+            return;
+        }
+
+        if (isSpeaking) {
+            if (isSpeechPaused) {
+                window.speechSynthesis.resume();
+                setIsSpeechPaused(false);
+            } else {
+                window.speechSynthesis.pause();
+                setIsSpeechPaused(true);
+            }
+        } else {
+            window.speechSynthesis.cancel();
+
+            const plainText = (studyContent || '')
+                .replace(/```[\s\S]*?```/g, ' Exemplo em código omitido. ')
+                .replace(/[#*`_~$]/g, '')
+                .trim();
+
+            if (!plainText) return;
+
+            const utterance = new SpeechSynthesisUtterance(plainText);
+            utterance.lang = 'pt-BR';
+            utterance.rate = speechRate;
+
+            utterance.onend = () => {
+                setIsSpeaking(false);
+                setIsSpeechPaused(false);
+            };
+            utterance.onerror = () => {
+                setIsSpeaking(false);
+                setIsSpeechPaused(false);
+            };
+
+            window.speechSynthesis.speak(utterance);
+            setIsSpeaking(true);
+            setIsSpeechPaused(false);
+        }
+    };
+
+    const handleStopSpeech = () => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
+        setIsSpeaking(false);
+        setIsSpeechPaused(false);
+    };
+
+    const handlePrintMaterial = () => {
+        window.print();
+    };
 
     // Formata o texto Markdown para exibição limpa e com quebras de linha reais no editor
     const cleanTextForEditing = (rawText) => {
@@ -784,7 +856,62 @@ export default function StudyMaterial({
                         title="Expandir o material para tela cheia sem distrações (Modo Foco)"
                         className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] sm:text-xs py-1.5 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-1 shadow-sm whitespace-nowrap flex-shrink-0"
                     >
-                        🔍 Modo Foco
+                        🧘 Modo Foco
+                    </button>
+
+                    {/* Botão do Leitor de Voz IA */}
+                    <div className="flex items-center bg-indigo-50 dark:bg-indigo-950/60 p-0.5 rounded-xl border border-indigo-200 dark:border-indigo-800/80 flex-shrink-0">
+                        <button
+                            onClick={handleToggleSpeech}
+                            title={isSpeaking ? (isSpeechPaused ? "Retomar leitura em voz alta" : "Pausar leitura") : "Ouvir material em voz alta (Text-to-Speech)"}
+                            className={`font-extrabold text-[11px] sm:text-xs py-1 px-2.5 rounded-lg transition-all flex items-center gap-1 shadow-sm whitespace-nowrap ${
+                                isSpeaking 
+                                    ? (isSpeechPaused ? "bg-amber-500 text-slate-950" : "bg-indigo-600 text-white animate-pulse") 
+                                    : "bg-indigo-600 hover:bg-indigo-500 text-white"
+                            }`}
+                        >
+                            <span>{isSpeaking ? (isSpeechPaused ? "▶️ Continuar" : "⏸️ Pausar") : "🔊 Ouvir Teoria"}</span>
+                        </button>
+
+                        {isSpeaking && (
+                            <button
+                                onClick={handleStopSpeech}
+                                title="Parar leitura"
+                                className="font-extrabold text-[11px] py-1 px-2 text-rose-500 hover:text-rose-700 transition-colors"
+                            >
+                                ⏹️
+                            </button>
+                        )}
+
+                        <select
+                            value={speechRate}
+                            onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
+                            className="bg-transparent text-[10px] font-bold text-indigo-700 dark:text-indigo-300 outline-none px-1 cursor-pointer"
+                            title="Velocidade de reprodução"
+                        >
+                            <option value="0.8">0.8x</option>
+                            <option value="1.0">1.0x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                        </select>
+                    </div>
+
+                    {/* Botão Imprimir / Exportar PDF */}
+                    <button
+                        onClick={handlePrintMaterial}
+                        title="Imprimir ou salvar este material em PDF"
+                        className="bg-slate-200 dark:bg-gray-700 hover:bg-slate-300 dark:hover:bg-gray-600 text-slate-800 dark:text-slate-100 font-extrabold text-[11px] sm:text-xs py-1.5 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-1 shadow-sm whitespace-nowrap flex-shrink-0"
+                    >
+                        📄 Exportar PDF
+                    </button>
+
+                    {/* Botão de Caderno de Anotações */}
+                    <button
+                        onClick={() => setShowNotebookModal(true)}
+                        title="Abrir seu Caderno de Anotações Pessoais de Estudo"
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-[11px] sm:text-xs py-1.5 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-1 shadow-sm whitespace-nowrap flex-shrink-0"
+                    >
+                        📓 Anotações
                     </button>
 
                     {/* Botão de Modo Edição Completa do Material */}
@@ -1082,6 +1209,15 @@ export default function StudyMaterial({
                         dangerouslySetInnerHTML={{ __html: formattedContent }}
                     />
                 </div>
+            )}
+
+            {/* Modal de Caderno de Anotações Pessoais */}
+            {showNotebookModal && (
+                <StudyNotebookModal
+                    trailId={currentTrail?.id}
+                    trailTitle={currentTrail?.title}
+                    onClose={() => setShowNotebookModal(false)}
+                />
             )}
         </div>
     );

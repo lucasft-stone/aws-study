@@ -422,3 +422,205 @@ export const deleteGlobalTrail = async (trailId) => {
     }
     return true;
 };
+
+/**
+ * [SYSTEM ANNOUNCEMENT] Busca o aviso/banner ativo do sistema.
+ */
+export const fetchSystemAnnouncement = async () => {
+    if (!ENABLE_FIREBASE_AUTH || !db) return null;
+    try {
+        const docRef = doc(db, 'systemSettings', 'announcement');
+        const snap = await getDoc(docRef);
+        return snap.exists() ? snap.data() : null;
+    } catch (err) {
+        console.error("Erro ao buscar aviso do sistema:", err);
+        return null;
+    }
+};
+
+/**
+ * [ADMIN] Atualiza ou salva o aviso/banner global do sistema.
+ */
+export const saveSystemAnnouncement = async (announcementData) => {
+    if (!ENABLE_FIREBASE_AUTH || !db) return;
+    const docRef = doc(db, 'systemSettings', 'announcement');
+    await setDoc(docRef, {
+        ...announcementData,
+        updatedAt: new Date()
+    }, { merge: true });
+};
+
+/**
+ * [AI SETTINGS] Busca as configurações personalizadas de IA e Prompts.
+ */
+export const fetchAiSettings = async () => {
+    if (!ENABLE_FIREBASE_AUTH || !db) return null;
+    try {
+        const docRef = doc(db, 'systemSettings', 'aiConfig');
+        const snap = await getDoc(docRef);
+        return snap.exists() ? snap.data() : null;
+    } catch (err) {
+        console.error("Erro ao buscar configurações de IA:", err);
+        return null;
+    }
+};
+
+/**
+ * [ADMIN] Salva ou atualiza as configurações globais de IA e Prompts.
+ */
+export const saveAiSettings = async (aiConfig) => {
+    if (!ENABLE_FIREBASE_AUTH || !db) return;
+    const docRef = doc(db, 'systemSettings', 'aiConfig');
+    await setDoc(docRef, {
+        ...aiConfig,
+        updatedAt: new Date()
+    }, { merge: true });
+};
+
+/**
+ * [ADMIN AUDIT LOGS] Registra uma ação administrativa no Firestore.
+ */
+export const logAdminAction = async (adminUser, actionType, details = '') => {
+    if (!ENABLE_FIREBASE_AUTH || !db) return;
+    try {
+        const logsRef = collection(db, 'adminAuditLogs');
+        await addDoc(logsRef, {
+            adminUid: adminUser?.uid || 'system',
+            adminEmail: adminUser?.email || 'admin',
+            adminName: adminUser?.displayName || 'Admin',
+            actionType,
+            details,
+            createdAt: new Date()
+        });
+    } catch (err) {
+        console.error("Erro ao gravar log de auditoria:", err);
+    }
+};
+
+/**
+ * [ADMIN AUDIT LOGS] Busca os últimos logs de auditoria do sistema.
+ */
+export const fetchAuditLogs = async () => {
+    if (!ENABLE_FIREBASE_AUTH || !db) return [];
+    try {
+        const logsQuery = query(collection(db, 'adminAuditLogs'));
+        const querySnapshot = await getDocs(logsQuery);
+        const logs = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        return logs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).slice(0, 50);
+    } catch (err) {
+        console.error("Erro ao buscar logs de auditoria:", err);
+        return [];
+    }
+};
+
+/**
+ * [MULTI-TENANT / ESCOLAS] Busca todas as instituições/colégios.
+ */
+export const fetchSchools = async () => {
+    if (!ENABLE_FIREBASE_AUTH || !db) return [];
+    try {
+        const querySnap = await getDocs(collection(db, 'schools'));
+        return querySnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (err) {
+        console.error("Erro ao buscar colégios:", err);
+        return [];
+    }
+};
+
+/**
+ * [MULTI-TENANT / ESCOLAS] Cria um novo colégio/instituição.
+ */
+export const createSchool = async (schoolData) => {
+    if (!ENABLE_FIREBASE_AUTH || !db) return { id: `school-${Date.now()}`, ...schoolData };
+    const code = schoolData.code || Math.random().toString(36).substring(2, 8).toUpperCase();
+    const docRef = await addDoc(collection(db, 'schools'), {
+        ...schoolData,
+        code,
+        teacherUids: schoolData.teacherUids || [],
+        studentUids: schoolData.studentUids || [],
+        createdAt: new Date()
+    });
+    return { id: docRef.id, code, ...schoolData };
+};
+
+/**
+ * [MULTI-TENANT / ESCOLAS] Atualiza dados do colégio.
+ */
+export const updateSchool = async (schoolId, updatedData) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !schoolId) return;
+    const docRef = doc(db, 'schools', schoolId);
+    await setDoc(docRef, { ...updatedData, updatedAt: new Date() }, { merge: true });
+};
+
+/**
+ * [MULTI-TENANT / ESCOLAS] Exclui um colégio.
+ */
+export const deleteSchool = async (schoolId) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !schoolId) return;
+    const docRef = doc(db, 'schools', schoolId);
+    await deleteDoc(docRef);
+};
+
+/**
+ * [MULTI-TENANT / TRILHAS DE MATÉRIA] Busca trilhas vinculadas a um colégio/professor.
+ */
+export const fetchSchoolTrails = async (schoolId) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !schoolId) return [];
+    try {
+        const querySnap = await getDocs(collection(db, 'schools', schoolId, 'subjects'));
+        return querySnap.docs.map(d => ({ id: d.id, schoolId, isSchoolTrail: true, ...d.data() }));
+    } catch (err) {
+        console.error("Erro ao buscar matérias do colégio:", err);
+        return [];
+    }
+};
+
+/**
+ * [MULTI-TENANT / TRILHAS DE MATÉRIA] Cria uma matéria/trilha no colégio.
+ */
+export const createSchoolTrail = async (schoolId, trailData) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !schoolId) return { id: `subj-${Date.now()}`, ...trailData };
+    const docRef = await addDoc(collection(db, 'schools', schoolId, 'subjects'), {
+        ...trailData,
+        schoolId,
+        isSchoolTrail: true,
+        published: trailData.published ?? true,
+        createdAt: new Date()
+    });
+    return { id: docRef.id, schoolId, isSchoolTrail: true, ...trailData };
+};
+
+/**
+ * [MULTI-TENANT / ALUNO] Matricula um aluno em um colégio pelo código de acesso.
+ */
+export const enrollStudentInSchoolByCode = async (studentUid, code) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !studentUid || !code) return null;
+    
+    const schoolsSnap = await getDocs(collection(db, 'schools'));
+    const matchedSchool = schoolsSnap.docs.find(d => d.data().code === code.trim().toUpperCase());
+    
+    if (!matchedSchool) {
+        throw new Error("Código de colégio inválido ou não encontrado.");
+    }
+
+    const schoolId = matchedSchool.id;
+    const schoolData = matchedSchool.data();
+    const studentUids = Array.isArray(schoolData.studentUids) ? schoolData.studentUids : [];
+
+    if (!studentUids.includes(studentUid)) {
+        await updateSchool(schoolId, { studentUids: [...studentUids, studentUid] });
+    }
+
+    // Atualiza o perfil do aluno
+    const userRef = doc(db, 'users', studentUid);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+        const uData = userSnap.data();
+        const enrolled = Array.isArray(uData.enrolledSchoolIds) ? uData.enrolledSchoolIds : [];
+        if (!enrolled.includes(schoolId)) {
+            await setDoc(userRef, { enrolledSchoolIds: [...enrolled, schoolId] }, { merge: true });
+        }
+    }
+
+    return { id: schoolId, ...schoolData };
+};

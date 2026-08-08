@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import StudyBot from './StudyBot';
 import CardButton from './CardButton';
 import PWAInstallPrompt from './PWAInstallPrompt';
-import { checkIsAdmin } from '../services/firebaseService';
+import AchievementsModal from './AchievementsModal';
+import StudyStatsModal from './StudyStatsModal';
+import DailyChallengeModal from './DailyChallengeModal';
+import SchoolEnrollModal from './SchoolEnrollModal';
+import { checkIsAdmin, fetchSystemAnnouncement, saveUserData } from '../services/firebaseService';
 import { resolveTopicIcon, getHideAwsTopicSetting } from '../utils/topicHelpers';
 
 export default function Home({
@@ -28,10 +32,43 @@ export default function Home({
     MAX_DAILY_TRAIL_CREATIONS
 }) {
     const isRoot = checkIsAdmin(user);
-    const creationLimitReached = (userData.dailyTrailCreations || 0) >= MAX_DAILY_TRAIL_CREATIONS && !isRoot;
+    const creationLimitReached = ((userData?.dailyTrailCreations) || 0) >= MAX_DAILY_TRAIL_CREATIONS && !isRoot;
 
     // Estado para controlar se o usuário está dentro de um tópico específico
     const [selectedTopicId, setSelectedTopicId] = useState(null);
+    const [announcement, setAnnouncement] = useState(null);
+    const [announcementDismissed, setAnnouncementDismissed] = useState(false);
+    const [showAchievementsModal, setShowAchievementsModal] = useState(false);
+    const [showStatsModal, setShowStatsModal] = useState(false);
+    const [showChallengeModal, setShowChallengeModal] = useState(false);
+    const [showSchoolEnrollModal, setShowSchoolEnrollModal] = useState(false);
+
+    const handleFinishChallenge = (bonusXp) => {
+        if (bonusXp > 0 && user?.uid) {
+            const newXp = ((userData?.xp) || 0) + bonusXp;
+            saveUserData(user.uid, { xp: newXp });
+        }
+    };
+
+    useEffect(() => {
+        const loadAnnouncement = async () => {
+            const data = await fetchSystemAnnouncement();
+            if (data && data.active && data.message) {
+                const dismissedId = sessionStorage.getItem('dismissed_announcement_id');
+                if (dismissedId !== String(data.updatedAt?.seconds || data.message)) {
+                    setAnnouncement(data);
+                }
+            }
+        };
+        loadAnnouncement();
+    }, []);
+
+    const dismissAnnouncement = () => {
+        setAnnouncementDismissed(true);
+        if (announcement) {
+            sessionStorage.setItem('dismissed_announcement_id', String(announcement.updatedAt?.seconds || announcement.message));
+        }
+    };
 
     // 1. Tópico Oficial AWS (Exemplo Completo)
     const officialTopic = {
@@ -98,6 +135,34 @@ export default function Home({
                 </div>
 
                 <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
+                    <button
+                        onClick={() => setShowSchoolEnrollModal(true)}
+                        title="Matricular-se em um Colégio ou Professor Particular via Código"
+                        className="bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-[11px] sm:text-xs py-1 px-2.5 rounded-xl transition-all flex items-center gap-1 shadow-sm"
+                    >
+                        🏫 Colégio
+                    </button>
+                    <button
+                        onClick={() => setShowChallengeModal(true)}
+                        title="Responder Desafio Diário Relâmpago para ganhar XP bônus"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] sm:text-xs py-1 px-2.5 rounded-xl transition-all flex items-center gap-1 shadow-sm"
+                    >
+                        ⚡ Desafio
+                    </button>
+                    <button
+                        onClick={() => setShowStatsModal(true)}
+                        title="Ver estatísticas de nível e progresso"
+                        className="bg-indigo-100 dark:bg-indigo-950/60 hover:bg-indigo-200 dark:hover:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300 font-extrabold text-[11px] sm:text-xs py-1 px-2.5 rounded-xl transition-all flex items-center gap-1 shadow-sm border border-indigo-300 dark:border-indigo-800"
+                    >
+                        📊 Nível
+                    </button>
+                    <button
+                        onClick={() => setShowAchievementsModal(true)}
+                        title="Ver Conquistas & Badges Desbloqueadas"
+                        className="bg-amber-100 dark:bg-amber-950/60 hover:bg-amber-200 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 font-extrabold text-[11px] sm:text-xs py-1 px-2.5 rounded-xl transition-all flex items-center gap-1 shadow-sm border border-amber-300 dark:border-amber-800"
+                    >
+                        🏆 Conquistas
+                    </button>
                     {toggleTheme && (
                         <button
                             onClick={toggleTheme}
@@ -107,7 +172,7 @@ export default function Home({
                             {themeMode === 'light' ? '☀️ Claro' : themeMode === 'dark' ? '🌙 Escuro' : '💻 Sistema'}
                         </button>
                     )}
-                    <span className="text-sm sm:text-lg font-extrabold text-red-500 flex items-center gap-1 bg-red-50 dark:bg-red-950/40 px-2 py-0.5 rounded-xl border border-red-100 dark:border-red-900/40">❤️ {userData.hearts}</span>
+                    <span className="text-sm sm:text-lg font-extrabold text-red-500 flex items-center gap-1 bg-red-50 dark:bg-red-950/40 px-2 py-0.5 rounded-xl border border-red-100 dark:border-red-900/40">❤️ {userData?.hearts ?? 5}</span>
                     {isRoot && (
                         <button 
                             onClick={() => {
@@ -134,10 +199,46 @@ export default function Home({
             
             <PWAInstallPrompt />
 
+            {/* Banner de Aviso do Sistema (Admin) */}
+            {announcement && !announcementDismissed && (
+                <div className={`w-full p-4 mb-5 rounded-2xl shadow-md border text-left flex items-start justify-between gap-3 animate-slide-in-bottom ${
+                    announcement.type === 'warning'
+                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
+                        : announcement.type === 'success'
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
+                        : announcement.type === 'alert'
+                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200'
+                        : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-900 dark:text-indigo-200'
+                }`}>
+                    <div className="flex items-start gap-2.5">
+                        <span className="text-xl">
+                            {announcement.type === 'warning' ? '⚠️' : announcement.type === 'success' ? '🎉' : announcement.type === 'alert' ? '🚨' : '📣'}
+                        </span>
+                        <div>
+                            {announcement.title && (
+                                <h4 className="font-extrabold text-xs uppercase tracking-wider mb-0.5 opacity-90">
+                                    {announcement.title}
+                                </h4>
+                            )}
+                            <p className="text-xs sm:text-sm font-semibold leading-relaxed">
+                                {announcement.message}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={dismissAnnouncement}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold p-1 rounded transition-colors"
+                        title="Fechar aviso"
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
+
             <StudyBot status="idle" />
             <h1 className="text-4xl font-extrabold text-slate-800 dark:text-white mb-1">StudyBot</h1>
             <p className="text-slate-500 dark:text-slate-300 mb-6">
-                Sua pontuação total: <span className="font-extrabold text-indigo-500">{userData.xp} XP</span>
+                Sua pontuação total: <span className="font-extrabold text-indigo-500">{(userData?.xp) || 0} XP</span>
             </p>
             
             {apiError && (
@@ -276,7 +377,7 @@ export default function Home({
 
                         <div className="space-y-3">
                             {activeTopic?.items.map(item => {
-                                const isLocked = item.xpRequired !== undefined && userData.xp < item.xpRequired;
+                                const isLocked = item.xpRequired !== undefined && ((userData?.xp) || 0) < item.xpRequired;
                                 const shortDescription = item.xpRequired !== undefined 
                                     ? `${item.xpRequired} XP necessários` 
                                     : (item.content ? (item.content.replace(/[\r\n]+/g, ' ').trim().substring(0, 90) + (item.content.length > 90 ? '...' : '')) : 'Subtópico de estudo');
@@ -299,6 +400,45 @@ export default function Home({
                     </div>
                 )}
             </div>
+
+            {/* Modal de Conquistas */}
+            {showAchievementsModal && (
+                <AchievementsModal
+                    userData={userData}
+                    customTrails={customTrails}
+                    onClose={() => setShowAchievementsModal(false)}
+                />
+            )}
+
+            {/* Modal de Estatísticas de Nível */}
+            {showStatsModal && (
+                <StudyStatsModal
+                    userData={userData}
+                    customTrails={customTrails}
+                    onClose={() => setShowStatsModal(false)}
+                />
+            )}
+
+            {/* Modal de Desafio Diário */}
+            {showChallengeModal && (
+                <DailyChallengeModal
+                    customTrails={customTrails}
+                    studyLevels={studyLevels}
+                    onFinishChallenge={handleFinishChallenge}
+                    onClose={() => setShowChallengeModal(false)}
+                />
+            )}
+
+            {/* Modal de Matrícula em Colégio */}
+            {showSchoolEnrollModal && (
+                <SchoolEnrollModal
+                    user={user}
+                    onClose={() => setShowSchoolEnrollModal(false)}
+                    onEnrolled={() => {
+                        if (reloadTrails) reloadTrails();
+                    }}
+                />
+            )}
         </div>
     );
 }

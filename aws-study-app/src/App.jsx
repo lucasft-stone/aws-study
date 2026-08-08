@@ -296,6 +296,7 @@ export default function App() {
                         HIDE_EXISTING_TRAILS={HIDE_EXISTING_TRAILS}
                         ROOT_USER_UID={ROOT_USER_UID}
                         MAX_DAILY_TRAIL_CREATIONS={MAX_DAILY_TRAIL_CREATIONS}
+                        reloadTrails={reloadTrails}
                     />
                 );
 
