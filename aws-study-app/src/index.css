@@ -280,3 +280,19 @@
     font-size: 11px !important;
   }
 }
+
+/* Suporte para Impressão Limpa em PDF / Papel */
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  header, footer, nav, button, select, .no-print, .copy-code-btn {
+    display: none !important;
+  }
+  .markdown-content {
+    color: black !important;
+    font-size: 12pt !important;
+    line-height: 1.5 !important;
+  }
+}

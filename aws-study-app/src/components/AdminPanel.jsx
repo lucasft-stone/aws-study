@@ -874,47 +874,47 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
             </div>
 
             {/* Navegação por Abas Principais */}
-            <div className="w-full flex flex-wrap bg-slate-100 dark:bg-gray-800 p-1.5 rounded-2xl mb-6 border border-slate-200 dark:border-gray-700 gap-1">
+            <div className="w-full flex overflow-x-auto no-scrollbar flex-nowrap sm:flex-wrap bg-slate-100 dark:bg-gray-800 p-1.5 rounded-2xl mb-6 border border-slate-200 dark:border-gray-700 gap-1 select-none">
                 <button
                     onClick={() => setActiveTab('globals')}
-                    className={`flex-1 py-2.5 px-3 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeTab === 'globals' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
+                    className={`py-2.5 px-3.5 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap flex-shrink-0 sm:flex-1 ${activeTab === 'globals' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
                 >
                     <span>🌐 Trilhas Globais</span>
                     <span className="bg-indigo-950 text-indigo-200 px-2 py-0.5 rounded-full text-[10px] font-mono">{globalTrails.length}</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('users')}
-                    className={`flex-1 py-2.5 px-3 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
+                    className={`py-2.5 px-3.5 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap flex-shrink-0 sm:flex-1 ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
                 >
                     <span>👥 Alunos ({totalUsers})</span>
                 </button>
                 <button
                     onClick={() => { setActiveTab('schools'); loadSchoolsList(); }}
-                    className={`flex-1 py-2.5 px-3 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeTab === 'schools' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
+                    className={`py-2.5 px-3.5 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap flex-shrink-0 sm:flex-1 ${activeTab === 'schools' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
                 >
                     <span>🏫 Escolas ({schoolsList.length})</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('announcements')}
-                    className={`flex-1 py-2.5 px-3 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeTab === 'announcements' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
+                    className={`py-2.5 px-3.5 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap flex-shrink-0 sm:flex-1 ${activeTab === 'announcements' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
                 >
                     <span>📣 Avisos</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('aiConfig')}
-                    className={`flex-1 py-2.5 px-3 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeTab === 'aiConfig' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
+                    className={`py-2.5 px-3.5 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap flex-shrink-0 sm:flex-1 ${activeTab === 'aiConfig' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
                 >
                     <span>🤖 IA & Prompts</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('analytics')}
-                    className={`flex-1 py-2.5 px-3 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeTab === 'analytics' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
+                    className={`py-2.5 px-3.5 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap flex-shrink-0 sm:flex-1 ${activeTab === 'analytics' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
                 >
                     <span>📊 Analytics</span>
                 </button>
                 <button
                     onClick={() => { setActiveTab('audit'); loadAuditLogsList(); }}
-                    className={`flex-1 py-2.5 px-3 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeTab === 'audit' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
+                    className={`py-2.5 px-3.5 text-xs sm:text-sm font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap flex-shrink-0 sm:flex-1 ${activeTab === 'audit' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'}`}
                 >
                     <span>📋 Auditoria</span>
                 </button>
