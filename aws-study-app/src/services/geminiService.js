@@ -17,8 +17,8 @@ export const AI_MODELS = [
     { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (Meta)' },
     { id: 'deepseek/deepseek-chat-v3-0324', name: 'DeepSeek V3' },
     { id: 'qwen/qwen-2.5-72b-instruct', name: 'Qwen 2.5 72B' },
-    { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Grátis)' },
-    { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B (Grátis)' },
+    { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', name: 'Nemotron 3 Ultra 550B (Grátis)' },
+    { id: 'google/gemma-4-31b-it:free', name: 'Gemma 4 31B (Grátis)' },
 ];
 
 // Alias mantido para retrocompatibilidade com imports existentes
@@ -27,8 +27,9 @@ export const GEMINI_MODELS = AI_MODELS;
 // Cadeia de fallbacks caso o modelo principal falhe ou esteja indisponível
 const FALLBACK_CHAIN = [
     'google/gemini-2.5-flash',
+    'google/gemini-2.5-flash-lite',
     'meta-llama/llama-3.3-70b-instruct',
-    'google/gemini-2.0-flash-exp:free',
+    'nvidia/nemotron-3-ultra-550b-a55b:free',
 ];
 
 /**
