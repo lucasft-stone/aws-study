@@ -13,6 +13,24 @@ export default function StudyAnki({
     rateAnkiCard
 }) {
     if (!ankiCards || ankiCards.length === 0) {
+        // Se for matéria de colégio, o aluno nunca deve ver "Gerando..." — o conteúdo vem do professor
+        if (currentTrail?.isSchoolTrail) {
+            return (
+                <div className="w-full max-w-lg text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-slate-200 dark:border-gray-700">
+                    <div className="text-5xl mb-4">🏫</div>
+                    <h2 className="text-xl font-extrabold text-slate-800 dark:text-white mb-2">Conteúdo não publicado</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                        O professor ainda não gerou os flashcards desta matéria. Avise-o para liberar o material!
+                    </p>
+                    <button
+                        onClick={() => setAppState('trail_options')}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl transition-colors text-sm"
+                    >
+                        ← Voltar
+                    </button>
+                </div>
+            );
+        }
         return <LoadingScreen text="Gerando flashcards..." />;
     }
 

@@ -234,9 +234,10 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         // Eles apenas consomem o que o professor/admin publicou previamente.
         if (trail?.isSchoolTrail && !isRoot) {
             const key = type === 'study' ? 'cachedStudy' : type === 'quiz' ? 'cachedQuiz' : 'cachedAnki';
-            const published = type === 'study' ? (trail?.cachedStudy || trail?.content) : trail?.[key];
-            if (!published || forceRefresh) {
-                setSessionError('📚 Este conteúdo ainda não foi publicado pelo seu professor. Aguarde a liberação!');
+            const raw = type === 'study' ? (trail?.cachedStudy || trail?.content) : trail?.[key];
+            const hasContent = Array.isArray(raw) ? raw.length > 0 : (typeof raw === 'string' ? raw.trim().length > 0 : !!raw);
+            if (!hasContent || forceRefresh) {
+                setSessionError('🏫 O professor ainda não gerou/publicou este conteúdo. Avise-o para liberar o material!');
                 setAppState('trail_options');
                 return;
             }
@@ -257,7 +258,11 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         const cacheKey = type === 'study' ? 'cachedStudy' : type === 'quiz' ? 'cachedQuiz' : 'cachedAnki';
 
         // Reusa o material existente se disponível sem chamar a IA caso não seja refresh forçado
-        const existingContent = type === 'study' ? (trail?.cachedStudy || trail?.content || (currentTrail?.id === trail?.id ? studyContent : null)) : trail?.[cacheKey];
+        const rawExisting = type === 'study' ? (trail?.cachedStudy || trail?.content || (currentTrail?.id === trail?.id ? studyContent : null)) : trail?.[cacheKey];
+        // Arrays/strings vazias NÃO contam como conteúdo existente (evita telas de loading infinito)
+        const existingContent = Array.isArray(rawExisting)
+            ? (rawExisting.length > 0 ? rawExisting : null)
+            : (typeof rawExisting === 'string' ? (rawExisting.trim().length > 0 ? rawExisting : null) : rawExisting);
 
         if (existingContent && !forceRefresh) {
             if (type === 'study') setStudyContent(existingContent);
@@ -267,6 +272,14 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
             resetQuizState();
             resetAnkiState();
             setAppState(type === 'study' ? 'studying_material' : type === 'quiz' ? 'quiz' : 'studying_anki');
+            return;
+        }
+
+        // [MULTI-TENANT] Segurança extra: se for matéria de colégio sem conteúdo válido e o usuário não é admin,
+        // nunca cair na geração por IA (já tratado acima, mas reforça contra estados inconsistentes)
+        if (trail?.isSchoolTrail && !isRoot) {
+            setSessionError('🏫 O professor ainda não gerou/publicou este conteúdo. Avise-o para liberar o material!');
+            setAppState('trail_options');
             return;
         }
 
