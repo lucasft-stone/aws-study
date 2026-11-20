@@ -9,7 +9,7 @@ import {
     fetchSchoolScores,
     logAdminAction
 } from '../services/firebaseService';
-import { fetchGeneratedStudyContent } from '../services/geminiService';
+import { fetchGeneratedStudyContent, AI_MODELS } from '../services/geminiService';
 import TheoryEditorModal from './TheoryEditorModal';
 import QuizEditorModal from './QuizEditorModal';
 import AnkiEditorModal from './AnkiEditorModal';
@@ -46,6 +46,7 @@ export default function TeacherPanel({ user, teacherSchools = [], handleReturnHo
     const [subjectForm, setSubjectForm] = useState({ title: '', topic: '' });
 
     // Geração IA
+    const [selectedModel, setSelectedModel] = useState('google/gemini-2.5-flash');
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatingId, setGeneratingId] = useState(null);
     const [genStepMessage, setGenStepMessage] = useState('');
@@ -127,7 +128,7 @@ export default function TeacherPanel({ user, teacherSchools = [], handleReturnHo
                 const labels = { study: 'Material Teórico', quiz: 'Simulado', anki: 'Flashcards Anki' };
                 setGenStepMessage(`🔄 Etapa ${step}/${types.length}: Gerando ${labels[type]} para "${subject.title}"...`);
                 const baseTrail = { ...subject, content: updates.cachedStudy || subject.cachedStudy || subject.content || subject.title };
-                const res = await fetchGeneratedStudyContent(baseTrail, type, 'google/gemini-2.5-flash', true);
+                const res = await fetchGeneratedStudyContent(baseTrail, type, selectedModel, true);
                 if (type === 'study' && res?.studyMaterial) updates.cachedStudy = res.studyMaterial;
                 else if (type === 'study' && res?.studyContent) updates.cachedStudy = res.studyContent;
                 else if (type === 'quiz' && res?.questions) updates.cachedQuiz = res.questions;
@@ -303,6 +304,20 @@ export default function TeacherPanel({ user, teacherSchools = [], handleReturnHo
                     {/* ============ ABA MATÉRIAS ============ */}
                     {activeTab === 'subjects' && (
                         <div className="space-y-4">
+                            {/* Seletor de Modelo de IA */}
+                            <div className="bg-white dark:bg-gray-800 p-3.5 rounded-2xl shadow border border-slate-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center gap-2">
+                                <label className="text-[10px] font-extrabold uppercase text-slate-400 whitespace-nowrap">🤖 Modelo de IA para gerar conteúdo</label>
+                                <select
+                                    value={selectedModel}
+                                    onChange={(e) => setSelectedModel(e.target.value)}
+                                    className="flex-1 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 text-slate-800 dark:text-white rounded-xl p-2 text-xs font-bold"
+                                >
+                                    {AI_MODELS.map(m => (
+                                        <option key={m.id} value={m.id}>{m.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
                             {/* Form nova matéria */}
                             <form onSubmit={handleCreateSubject} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow border border-slate-100 dark:border-gray-700 space-y-3">
                                 <h4 className="font-extrabold text-xs text-indigo-600 dark:text-indigo-400 uppercase">+ Nova Matéria</h4>

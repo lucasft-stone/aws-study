@@ -28,7 +28,7 @@ import {
     updateSchoolTrail,
     deleteSchoolTrail
 } from '../services/firebaseService';
-import { fetchGeneratedStudyContent } from '../services/geminiService';
+import { fetchGeneratedStudyContent, AI_MODELS } from '../services/geminiService';
 import QuizEditorModal from './QuizEditorModal';
 import TheoryEditorModal from './TheoryEditorModal';
 import AnkiEditorModal from './AnkiEditorModal';
@@ -90,6 +90,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
     const [editingTheoryTrail, setEditingTheoryTrail] = useState(null);
     const [editingAnkiTrail, setEditingAnkiTrail] = useState(null);
 
+    const [aiModel, setAiModel] = useState('google/gemini-2.5-flash');
     const [globalForm, setGlobalForm] = useState({
         title: '',
         topic: 'Matemática',
@@ -272,7 +273,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
 
         try {
             const mockTrail = { title: sandboxTopic, content: sandboxTopic };
-            const res = await fetchGeneratedStudyContent(mockTrail, sandboxType, 'google/gemini-2.5-flash', true);
+            const res = await fetchGeneratedStudyContent(mockTrail, sandboxType, aiModel, true);
             const endTime = Date.now();
             setSandboxTimeMs(endTime - startTime);
             setSandboxResult(res);
@@ -501,15 +502,15 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
         setPackStepMessage(`📚 Etapa 1/3: Gerando Material Teórico com IA para "${trail.title}"... Por favor aguarde.`);
 
         try {
-            const studyRes = await fetchGeneratedStudyContent(trail, 'study', 'google/gemini-2.5-flash', true);
+            const studyRes = await fetchGeneratedStudyContent(trail, 'study', aiModel, true);
             const studyText = studyRes?.studyMaterial || studyRes?.studyContent || '';
 
             setPackStepMessage(`📝 Etapa 2/3: Sintetizando Simulados e Exercícios de Múltipla Escolha... Por favor aguarde.`);
-            const quizRes = await fetchGeneratedStudyContent(trail, 'quiz', 'google/gemini-2.5-flash', true);
+            const quizRes = await fetchGeneratedStudyContent(trail, 'quiz', aiModel, true);
             const questions = quizRes?.questions || [];
 
             setPackStepMessage(`🧠 Etapa 3/3: Estruturando Cartões Anki para Memorização Espaçada... Por favor aguarde.`);
-            const ankiRes = await fetchGeneratedStudyContent(trail, 'anki', 'google/gemini-2.5-flash', true);
+            const ankiRes = await fetchGeneratedStudyContent(trail, 'anki', aiModel, true);
             const flashcards = ankiRes?.cards || ankiRes?.flashcards || [];
 
             setPackStepMessage(`💾 Finalizando e Publicando Pacote para Todos os Alunos...`);
@@ -541,15 +542,15 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
         setPackStepMessage(`📚 Etapa 1/3: Gerando Material Teórico com IA para "${subject.title}"... Por favor aguarde.`);
 
         try {
-            const studyRes = await fetchGeneratedStudyContent(subject, 'study', 'google/gemini-2.5-flash', true);
+            const studyRes = await fetchGeneratedStudyContent(subject, 'study', aiModel, true);
             const studyText = studyRes?.studyMaterial || studyRes?.studyContent || '';
 
             setPackStepMessage(`📝 Etapa 2/3: Sintetizando Simulados e Exercícios de Múltipla Escolha... Por favor aguarde.`);
-            const quizRes = await fetchGeneratedStudyContent(subject, 'quiz', 'google/gemini-2.5-flash', true);
+            const quizRes = await fetchGeneratedStudyContent(subject, 'quiz', aiModel, true);
             const questions = quizRes?.questions || [];
 
             setPackStepMessage(`🧠 Etapa 3/3: Estruturando Cartões Anki para Memorização Espaçada... Por favor aguarde.`);
-            const ankiRes = await fetchGeneratedStudyContent(subject, 'anki', 'google/gemini-2.5-flash', true);
+            const ankiRes = await fetchGeneratedStudyContent(subject, 'anki', aiModel, true);
             const flashcards = ankiRes?.cards || ankiRes?.flashcards || [];
 
             setPackStepMessage(`💾 Finalizando e Publicando Pacote para os alunos de ${selectedSchool.name}...`);
@@ -586,7 +587,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
         try {
             // Usa a teoria atual como base para quiz/anki, se existir
             const baseTrail = { ...subject, content: subject.cachedStudy || subject.content || subject.title };
-            const res = await fetchGeneratedStudyContent(baseTrail, type, 'google/gemini-2.5-flash', true);
+            const res = await fetchGeneratedStudyContent(baseTrail, type, aiModel, true);
 
             let update = {};
             if (type === 'study' && (res?.studyMaterial || res?.studyContent)) update = { cachedStudy: res.studyMaterial || res.studyContent };
@@ -1025,6 +1026,20 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
                 >
                     <span>📋 Auditoria</span>
                 </button>
+            </div>
+
+            {/* Seletor Global de Modelo de IA (usado em Pacotes, Sandbox e Regenerações) */}
+            <div className="w-full mb-6 bg-white dark:bg-gray-800 p-3.5 rounded-2xl shadow border border-slate-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center gap-2">
+                <label className="text-[10px] font-extrabold uppercase text-slate-400 whitespace-nowrap">🤖 Modelo de IA para gerações</label>
+                <select
+                    value={aiModel}
+                    onChange={(e) => setAiModel(e.target.value)}
+                    className="flex-1 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 text-slate-800 dark:text-white rounded-xl p-2 text-xs font-bold"
+                >
+                    {AI_MODELS.map(m => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                </select>
             </div>
 
             {/* ABA 1: TRILHAS GLOBAIS DA COMUNIDADE */}
