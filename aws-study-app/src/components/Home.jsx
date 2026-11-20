@@ -29,7 +29,8 @@ export default function Home({
     toggleTheme,
     ENABLE_FIREBASE_AUTH,
     HIDE_EXISTING_TRAILS,
-    MAX_DAILY_TRAIL_CREATIONS
+    MAX_DAILY_TRAIL_CREATIONS,
+    reloadTrails
 }) {
     const isRoot = checkIsAdmin(user);
     const creationLimitReached = ((userData?.dailyTrailCreations) || 0) >= MAX_DAILY_TRAIL_CREATIONS && !isRoot;
