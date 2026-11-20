@@ -6,7 +6,7 @@ import AchievementsModal from './AchievementsModal';
 import StudyStatsModal from './StudyStatsModal';
 import DailyChallengeModal from './DailyChallengeModal';
 import SchoolEnrollModal from './SchoolEnrollModal';
-import { checkIsAdmin, fetchSystemAnnouncement, saveUserData } from '../services/firebaseService';
+import { checkIsAdmin, fetchSystemAnnouncement, saveUserData, fetchStudentSchoolScore } from '../services/firebaseService';
 import { resolveTopicIcon, getHideAwsTopicSetting } from '../utils/topicHelpers';
 
 export default function Home({
@@ -44,6 +44,7 @@ export default function Home({
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [showChallengeModal, setShowChallengeModal] = useState(false);
     const [showSchoolEnrollModal, setShowSchoolEnrollModal] = useState(false);
+    const [schoolScore, setSchoolScore] = useState(null);
 
     const handleFinishChallenge = (bonusXp) => {
         if (bonusXp > 0 && user?.uid) {
@@ -122,6 +123,22 @@ export default function Home({
 
     // Tópico atualmente aberto pelo usuário
     const activeTopic = allTopics.find(t => t.id === selectedTopicId);
+
+    // [MULTI-TENANT] Busca a pontuação do aluno dentro do colégio ao abrir o tópico da escola
+    useEffect(() => {
+        const loadSchoolScore = async () => {
+            if (activeTopic?.isSchoolTopic && user?.uid) {
+                const schoolId = activeTopic.items[0]?.schoolId;
+                if (schoolId) {
+                    const score = await fetchStudentSchoolScore(user.uid, schoolId);
+                    setSchoolScore(score);
+                }
+            } else {
+                setSchoolScore(null);
+            }
+        };
+        loadSchoolScore();
+    }, [selectedTopicId, user]);
 
     return (
         <div className="w-full max-w-2xl text-center animate-fade-in">
@@ -363,6 +380,20 @@ export default function Home({
                         >
                             ← Voltar para Todos os Tópicos
                         </button>
+
+                        {/* Placar específico do Colégio (sem sistema de corações) */}
+                        {activeTopic?.isSchoolTopic && (
+                            <div className="p-4 mb-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl text-white shadow-md flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-purple-200">Sua pontuação neste colégio</p>
+                                    <p className="text-2xl font-extrabold">🏫 {schoolScore ?? 0} XP</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-purple-200">Modo Escola</p>
+                                    <p className="text-xs font-bold">🚫❤️ Sem perda de corações</p>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="p-4 mb-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                             <div className="flex items-center gap-3">

@@ -6,6 +6,7 @@ import {
     deleteSchoolTrail,
     fetchSchoolStudents,
     fetchSchoolPerformance,
+    fetchSchoolScores,
     logAdminAction
 } from '../services/firebaseService';
 import { fetchGeneratedStudyContent } from '../services/geminiService';
@@ -37,6 +38,7 @@ export default function TeacherPanel({ user, teacherSchools = [], handleReturnHo
     const [subjects, setSubjects] = useState([]);
     const [students, setStudents] = useState([]);
     const [performance, setPerformance] = useState([]);
+    const [scores, setScores] = useState([]);
     const [loadingData, setLoadingData] = useState(false);
     const [actionMessage, setActionMessage] = useState('');
 
@@ -57,14 +59,16 @@ export default function TeacherPanel({ user, teacherSchools = [], handleReturnHo
         if (!school) return;
         setLoadingData(true);
         try {
-            const [subs, studs, perf] = await Promise.all([
+            const [subs, studs, perf, sc] = await Promise.all([
                 fetchSchoolTrails(school.id),
                 fetchSchoolStudents(school),
-                fetchSchoolPerformance(school.id)
+                fetchSchoolPerformance(school.id),
+                fetchSchoolScores(school.id)
             ]);
             setSubjects(subs);
             setStudents(studs);
             setPerformance(perf);
+            setScores(sc);
         } catch (err) {
             console.error("Erro ao carregar dados do colégio:", err);
             setActionMessage("Erro ao carregar dados: " + err.message);
@@ -383,6 +387,7 @@ export default function TeacherPanel({ user, teacherSchools = [], handleReturnHo
                                 students.map(st => {
                                     const perf = performanceByStudent[st.uid];
                                     const accuracy = perf && perf.total > 0 ? Math.round((perf.correct / perf.total) * 100) : null;
+                                    const schoolXp = scores.find(s => s.studentUid === st.uid)?.schoolXp || 0;
                                     return (
                                         <div key={st.uid} className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm flex items-center justify-between gap-3">
                                             <div className="min-w-0">
@@ -390,7 +395,7 @@ export default function TeacherPanel({ user, teacherSchools = [], handleReturnHo
                                                 <p className="text-[10px] text-slate-400 truncate">{st.email || st.uid}</p>
                                             </div>
                                             <div className="flex items-center gap-2 flex-shrink-0 text-[10px] font-extrabold">
-                                                <span className="bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded-lg">{st.xp || 0} XP</span>
+                                                <span className="bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-lg" title="Pontuação conquistada dentro deste colégio">🏫 {schoolXp} XP</span>
                                                 {accuracy !== null ? (
                                                     <span className={`px-2 py-1 rounded-lg ${accuracy >= 70 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : accuracy >= 40 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'}`}>
                                                         🎯 {accuracy}%
@@ -414,6 +419,7 @@ export default function TeacherPanel({ user, teacherSchools = [], handleReturnHo
                             ) : (
                                 Object.entries(performanceByStudent).map(([uid, data]) => {
                                     const accuracy = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
+                                    const schoolXp = scores.find(s => s.studentUid === uid)?.schoolXp || 0;
                                     return (
                                         <div key={uid} className="bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm p-4 space-y-3">
                                             <div className="flex items-center justify-between gap-2">
@@ -421,9 +427,14 @@ export default function TeacherPanel({ user, teacherSchools = [], handleReturnHo
                                                     <h5 className="font-extrabold text-sm text-slate-800 dark:text-white truncate">{data.name}</h5>
                                                     <p className="text-[10px] text-slate-400 truncate">{data.email}</p>
                                                 </div>
-                                                <span className={`text-xs font-extrabold px-3 py-1 rounded-full ${accuracy >= 70 ? 'bg-emerald-100 text-emerald-700' : accuracy >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-                                                    {accuracy}% de acerto
-                                                </span>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300" title="XP conquistado neste colégio">
+                                                        🏫 {schoolXp} XP
+                                                    </span>
+                                                    <span className={`text-xs font-extrabold px-3 py-1 rounded-full ${accuracy >= 70 ? 'bg-emerald-100 text-emerald-700' : accuracy >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                                                        {accuracy}% de acerto
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             {/* Barra geral */}

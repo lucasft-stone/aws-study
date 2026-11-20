@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { fetchGeneratedStudyContent } from '../services/geminiService';
-import { updateProgressCache, fetchStudyLevelProgress, ENABLE_FIREBASE_AUTH, recordSchoolQuizAnswer } from '../services/firebaseService';
+import { updateProgressCache, fetchStudyLevelProgress, ENABLE_FIREBASE_AUTH, recordSchoolQuizAnswer, recordSchoolScore } from '../services/firebaseService';
 
 const XP_PER_CORRECT_ANSWER = 25;
 const MAX_DAILY_REFRESHES = 10;
@@ -359,11 +359,23 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         setIsCorrect(correct);
         setBotStatus(correct ? 'correct' : 'incorrect');
 
+        const isSchoolContext = currentTrail?.isSchoolTrail === true && !!currentTrail?.schoolId;
+
         if (correct) {
             const newXp = (userData?.xp || 0) + XP_PER_CORRECT_ANSWER;
             setLastQuizXp(prev => prev + XP_PER_CORRECT_ANSWER);
             updateUserData({ xp: newXp });
-        } else {
+
+            // [MULTI-TENANT] Pontuação também conta para o placar específico do colégio
+            if (isSchoolContext && user?.uid) {
+                recordSchoolScore(
+                    { uid: user.uid, displayName: user.displayName, email: user.email },
+                    currentTrail.schoolId,
+                    XP_PER_CORRECT_ANSWER
+                ).catch(console.error);
+            }
+        } else if (!isSchoolContext) {
+            // [MULTI-TENANT] Sistema de corações NÃO se aplica dentro de colégios/cursos
             const newHearts = (userData?.hearts || 0) - 1;
             updateUserData({ hearts: newHearts });
             if (newHearts <= 0) {
@@ -372,7 +384,7 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         }
 
         // [MULTI-TENANT] Registra acerto/erro para o painel do professor (matérias de colégio).
-        if (currentTrail?.isSchoolTrail && currentTrail?.schoolId && user?.uid) {
+        if (isSchoolContext && user?.uid) {
             recordSchoolQuizAnswer(
                 { uid: user.uid, displayName: user.displayName, email: user.email },
                 currentTrail.schoolId,

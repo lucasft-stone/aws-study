@@ -724,6 +724,54 @@ export const recordSchoolQuizAnswer = async (studentProfile, schoolId, subjectId
 };
 
 /**
+ * [MULTI-TENANT / PLACAR] Incrementa a pontuação do aluno dentro de um colégio específico.
+ * Doc: schools/{schoolId}/scores/{uid}
+ */
+export const recordSchoolScore = async (studentProfile, schoolId, xpDelta) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !studentProfile?.uid || !schoolId || !xpDelta) return;
+    try {
+        const scoreRef = doc(db, 'schools', schoolId, 'scores', studentProfile.uid);
+        await setDoc(scoreRef, {
+            studentUid: studentProfile.uid,
+            studentName: studentProfile.displayName || 'Aluno',
+            studentEmail: studentProfile.email || '',
+            schoolXp: increment(xpDelta),
+            updatedAt: new Date()
+        }, { merge: true });
+    } catch (err) {
+        console.error("Erro ao registrar pontuação no colégio:", err);
+    }
+};
+
+/**
+ * [MULTI-TENANT / PLACAR] Busca a pontuação de UM aluno em um colégio.
+ */
+export const fetchStudentSchoolScore = async (uid, schoolId) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !uid || !schoolId) return 0;
+    try {
+        const snap = await getDoc(doc(db, 'schools', schoolId, 'scores', uid));
+        return snap.exists() ? (snap.data().schoolXp || 0) : 0;
+    } catch (err) {
+        console.error("Erro ao buscar pontuação do aluno no colégio:", err);
+        return 0;
+    }
+};
+
+/**
+ * [MULTI-TENANT / PLACAR] Busca o placar completo de um colégio (para o professor).
+ */
+export const fetchSchoolScores = async (schoolId) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !schoolId) return [];
+    try {
+        const querySnap = await getDocs(collection(db, 'schools', schoolId, 'scores'));
+        return querySnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (err) {
+        console.error("Erro ao buscar placar do colégio:", err);
+        return [];
+    }
+};
+
+/**
  * [MULTI-TENANT / DESEMPENHO] Busca todos os registros de desempenho de um colégio.
  */
 export const fetchSchoolPerformance = async (schoolId) => {

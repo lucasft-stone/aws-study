@@ -40,9 +40,9 @@ export default function TrailOptions({
                 />
                 <CardButton
                     title="Ir Direto para o Quiz"
-                    description={`${userData.hearts} corações restantes.`}
+                    description={isSchoolTrail ? 'Modo livre: sem perda de corações! 🎓' : `${userData.hearts} corações restantes.`}
                     onClick={() => generateContent(currentTrail, 'quiz')}
-                    disabled={userData.hearts <= 0}
+                    disabled={userData.hearts <= 0 && !isSchoolTrail}
                     icon={<span>🧠</span>}
                 />
 
@@ -55,7 +55,7 @@ export default function TrailOptions({
                     </button>
                 )}
             </div>
-            {userData.hearts <= 0 && (
+            {userData.hearts <= 0 && !isSchoolTrail && (
                 <p className="text-red-500 mt-4 font-bold">Você está sem corações! Estude o material para recarregá-los.</p>
             )}
         </div>
