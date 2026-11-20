@@ -502,7 +502,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
 
         try {
             const studyRes = await fetchGeneratedStudyContent(trail, 'study', 'google/gemini-2.5-flash', true);
-            const studyText = studyRes?.studyContent || '';
+            const studyText = studyRes?.studyMaterial || studyRes?.studyContent || '';
 
             setPackStepMessage(`📝 Etapa 2/3: Sintetizando Simulados e Exercícios de Múltipla Escolha... Por favor aguarde.`);
             const quizRes = await fetchGeneratedStudyContent(trail, 'quiz', 'google/gemini-2.5-flash', true);
@@ -510,7 +510,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
 
             setPackStepMessage(`🧠 Etapa 3/3: Estruturando Cartões Anki para Memorização Espaçada... Por favor aguarde.`);
             const ankiRes = await fetchGeneratedStudyContent(trail, 'anki', 'google/gemini-2.5-flash', true);
-            const flashcards = ankiRes?.flashcards || [];
+            const flashcards = ankiRes?.cards || ankiRes?.flashcards || [];
 
             setPackStepMessage(`💾 Finalizando e Publicando Pacote para Todos os Alunos...`);
             await updateGlobalTrail(trail.id, {
@@ -542,7 +542,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
 
         try {
             const studyRes = await fetchGeneratedStudyContent(subject, 'study', 'google/gemini-2.5-flash', true);
-            const studyText = studyRes?.studyContent || '';
+            const studyText = studyRes?.studyMaterial || studyRes?.studyContent || '';
 
             setPackStepMessage(`📝 Etapa 2/3: Sintetizando Simulados e Exercícios de Múltipla Escolha... Por favor aguarde.`);
             const quizRes = await fetchGeneratedStudyContent(subject, 'quiz', 'google/gemini-2.5-flash', true);
@@ -550,7 +550,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
 
             setPackStepMessage(`🧠 Etapa 3/3: Estruturando Cartões Anki para Memorização Espaçada... Por favor aguarde.`);
             const ankiRes = await fetchGeneratedStudyContent(subject, 'anki', 'google/gemini-2.5-flash', true);
-            const flashcards = ankiRes?.flashcards || [];
+            const flashcards = ankiRes?.cards || ankiRes?.flashcards || [];
 
             setPackStepMessage(`💾 Finalizando e Publicando Pacote para os alunos de ${selectedSchool.name}...`);
             await updateSchoolTrail(selectedSchool.id, subject.id, {
@@ -589,9 +589,9 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
             const res = await fetchGeneratedStudyContent(baseTrail, type, 'google/gemini-2.5-flash', true);
 
             let update = {};
-            if (type === 'study' && res?.studyContent) update = { cachedStudy: res.studyContent };
+            if (type === 'study' && (res?.studyMaterial || res?.studyContent)) update = { cachedStudy: res.studyMaterial || res.studyContent };
             else if (type === 'quiz' && res?.questions) update = { cachedQuiz: res.questions };
-            else if (type === 'anki' && res?.flashcards) update = { cachedAnki: res.flashcards };
+            else if (type === 'anki' && (res?.cards || res?.flashcards)) update = { cachedAnki: res.cards || res.flashcards };
             else throw new Error("A IA não retornou o conteúdo esperado.");
 
             await updateSchoolTrail(selectedSchool.id, subject.id, update);

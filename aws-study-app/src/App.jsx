@@ -13,6 +13,7 @@ import StudyAnki from './components/StudyAnki';
 import Quiz from './components/Quiz';
 import Completed from './components/Completed';
 import AdminPanel from './components/AdminPanel';
+import TeacherPanel from './components/TeacherPanel';
 
 // Services e Custom Hooks Refatorados
 import { GEMINI_MODELS } from './services/geminiService';
@@ -22,7 +23,8 @@ import {
     ROOT_USER_UID,
     checkIsAdmin,
     updateProgressCache,
-    updateGlobalTrail
+    updateGlobalTrail,
+    fetchTeacherSchools
 } from './services/firebaseService';
 import { useAuthAndData } from './hooks/useAuthAndData';
 import { useStudySession } from './hooks/useStudySession';
@@ -117,6 +119,9 @@ export default function App() {
     const [editingTrail, setEditingTrail] = useState(null);
 
     const handleOpenEditTrail = (trail) => {
+        // Apenas o Admin geral pode editar conteúdo de trilhas pela Home.
+        // Professores editam pelo Painel do Professor; alunos nunca editam conteúdo.
+        if (!isRoot) return;
         setEditingTrail(trail);
         setNewTrailTitle(trail.title || '');
         setNewTrailContent(trail.content || trail.cachedStudy || '');
@@ -204,11 +209,27 @@ export default function App() {
     useEffect(() => {
         if (window.location.pathname === '/admin') {
             setAppState('admin');
+        } else if (window.location.pathname === '/professor') {
+            setAppState('teacher_admin');
         }
     }, [setAppState]);
 
+    // [MULTI-TENANT] Carrega os colégios em que o usuário é professor
+    const [teacherSchools, setTeacherSchools] = useState([]);
+    useEffect(() => {
+        const loadTeacherSchools = async () => {
+            if (user && userData) {
+                const schools = await fetchTeacherSchools(user, userData);
+                setTeacherSchools(schools);
+            } else {
+                setTeacherSchools([]);
+            }
+        };
+        loadTeacherSchools();
+    }, [user, userData]);
+
     const handleReturnHome = () => {
-        if (window.location.pathname === '/admin') {
+        if (window.location.pathname === '/admin' || window.location.pathname === '/professor') {
             window.history.pushState({}, '', '/');
         }
         setAppState('home');
@@ -266,6 +287,9 @@ export default function App() {
             case 'admin':
                 return <AdminPanel user={user} handleReturnHome={handleReturnHome} reloadTrails={reloadTrails} />;
 
+            case 'teacher_admin':
+                return <TeacherPanel user={user} teacherSchools={teacherSchools} handleReturnHome={handleReturnHome} reloadTrails={reloadTrails} />;
+
             case 'loading':
                 return <LoadingScreen text="Gerando conteúdo com IA..." />;
 
@@ -297,6 +321,7 @@ export default function App() {
                         ROOT_USER_UID={ROOT_USER_UID}
                         MAX_DAILY_TRAIL_CREATIONS={MAX_DAILY_TRAIL_CREATIONS}
                         reloadTrails={reloadTrails}
+                        teacherSchools={teacherSchools}
                     />
                 );
 

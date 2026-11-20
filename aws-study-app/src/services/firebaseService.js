@@ -16,7 +16,8 @@ import {
     getDocs, 
     query, 
     updateDoc, 
-    deleteDoc 
+    deleteDoc,
+    increment
 } from 'firebase/firestore';
 
 export const ENABLE_FIREBASE_AUTH = import.meta.env.VITE_ENABLE_FIREBASE_AUTH === 'true';
@@ -641,6 +642,99 @@ export const deleteSchoolTrail = async (schoolId, subjectId) => {
     if (!ENABLE_FIREBASE_AUTH || !db || !schoolId || !subjectId) return;
     const docRef = doc(db, 'schools', schoolId, 'subjects', subjectId);
     await deleteDoc(docRef);
+};
+
+/**
+ * [MULTI-TENANT / PROFESSOR] Busca os colégios em que o usuário é professor.
+ * Critérios: email em teacherEmails, uid em teacherUids, ou flag isTeacher/isAdmin no perfil.
+ */
+export const fetchTeacherSchools = async (user, userData = null) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !user) return [];
+    try {
+        const querySnap = await getDocs(collection(db, 'schools'));
+        const email = (user.email || '').toLowerCase();
+        return querySnap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(school => {
+                const emails = Array.isArray(school.teacherEmails) ? school.teacherEmails.map(e => (e || '').toLowerCase()) : [];
+                const uids = Array.isArray(school.teacherUids) ? school.teacherUids : [];
+                return (email && emails.includes(email)) || uids.includes(user.uid);
+            });
+    } catch (err) {
+        console.error("Erro ao buscar colégios do professor:", err);
+        return [];
+    }
+};
+
+/**
+ * [MULTI-TENANT / PROFESSOR] Verifica se o usuário leciona em algum colégio.
+ */
+export const checkIsTeacher = async (user, userData = null) => {
+    if (!user) return false;
+    if (isOwnerAdmin(user)) return true;
+    if (userData?.isTeacher === true) return true;
+    const schools = await fetchTeacherSchools(user, userData);
+    return schools.length > 0;
+};
+
+/**
+ * [MULTI-TENANT / PROFESSOR] Busca os dados de perfil dos alunos matriculados em um colégio.
+ */
+export const fetchSchoolStudents = async (school) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !school) return [];
+    const uids = Array.isArray(school.studentUids) ? school.studentUids : [];
+    const students = [];
+    for (const uid of uids) {
+        try {
+            const snap = await getDoc(doc(db, 'users', uid));
+            if (snap.exists()) {
+                students.push({ uid, ...snap.data() });
+            } else {
+                students.push({ uid, displayName: 'Aluno (sem perfil)', email: '' });
+            }
+        } catch (err) {
+            console.error("Erro ao buscar aluno", uid, err);
+        }
+    }
+    return students;
+};
+
+/**
+ * [MULTI-TENANT / DESEMPENHO] Registra uma resposta de quiz de um aluno em uma matéria de colégio.
+ * Agrega acertos/erros por aluno+matéria no doc schools/{schoolId}/performance/{uid_subjectId}.
+ */
+export const recordSchoolQuizAnswer = async (studentProfile, schoolId, subjectId, subjectTitle, isCorrect) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !studentProfile?.uid || !schoolId || !subjectId) return;
+    try {
+        const perfRef = doc(db, 'schools', schoolId, 'performance', `${studentProfile.uid}_${subjectId}`);
+        await setDoc(perfRef, {
+            studentUid: studentProfile.uid,
+            studentName: studentProfile.displayName || 'Aluno',
+            studentEmail: studentProfile.email || '',
+            subjectId,
+            subjectTitle: subjectTitle || 'Matéria',
+            totalAnswers: increment(1),
+            correctAnswers: increment(isCorrect ? 1 : 0),
+            wrongAnswers: increment(isCorrect ? 0 : 1),
+            lastAnswerAt: new Date()
+        }, { merge: true });
+    } catch (err) {
+        console.error("Erro ao registrar desempenho do aluno:", err);
+    }
+};
+
+/**
+ * [MULTI-TENANT / DESEMPENHO] Busca todos os registros de desempenho de um colégio.
+ */
+export const fetchSchoolPerformance = async (schoolId) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !schoolId) return [];
+    try {
+        const querySnap = await getDocs(collection(db, 'schools', schoolId, 'performance'));
+        return querySnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (err) {
+        console.error("Erro ao buscar desempenho do colégio:", err);
+        return [];
+    }
 };
 
 /**

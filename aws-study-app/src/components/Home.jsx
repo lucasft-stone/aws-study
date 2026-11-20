@@ -30,7 +30,8 @@ export default function Home({
     ENABLE_FIREBASE_AUTH,
     HIDE_EXISTING_TRAILS,
     MAX_DAILY_TRAIL_CREATIONS,
-    reloadTrails
+    reloadTrails,
+    teacherSchools = []
 }) {
     const isRoot = checkIsAdmin(user);
     const creationLimitReached = ((userData?.dailyTrailCreations) || 0) >= MAX_DAILY_TRAIL_CREATIONS && !isRoot;
@@ -145,6 +146,18 @@ export default function Home({
                     >
                         🏫 Colégio
                     </button>
+                    {teacherSchools.length > 0 && (
+                        <button
+                            onClick={() => {
+                                setAppState('teacher_admin');
+                                window.history.pushState({}, '', '/professor');
+                            }}
+                            title="Acessar o Painel do Professor (gestão de matérias, alunos e desempenho)"
+                            className="bg-teal-600 hover:bg-teal-500 text-white font-extrabold text-[11px] sm:text-xs py-1 px-2.5 rounded-xl transition-all flex items-center gap-1 shadow-sm"
+                        >
+                            🧑‍🏫 Professor
+                        </button>
+                    )}
                     <button
                         onClick={() => setShowChallengeModal(true)}
                         title="Responder Desafio Diário Relâmpago para ganhar XP bônus"
@@ -394,7 +407,7 @@ export default function Home({
                                         onClick={() => handleSelectTrail(item)}
                                         icon={isLocked ? '🔒' : (item.icon || activeTopic.icon || '📌')}
                                         badge={item.isSchoolTrail ? '🏫 Colégio' : item.isGlobal ? '🌐 Oficial' : undefined}
-                                        onEdit={!item.isSchoolTrail && activeTopic.id !== 'topic-aws' && !activeTopic?.isSchoolTopic && handleEditTrail ? () => handleEditTrail(item) : undefined}
+                                        onEdit={isRoot && !item.isSchoolTrail && activeTopic.id !== 'topic-aws' && !activeTopic?.isSchoolTopic && handleEditTrail ? () => handleEditTrail(item) : undefined}
                                         onDelete={!item.isSchoolTrail && activeTopic.id !== 'topic-aws' && !activeTopic?.isSchoolTopic ? () => handleDeleteTrail(item.id) : undefined}
                                     />
                                 );

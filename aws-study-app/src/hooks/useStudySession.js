@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { fetchGeneratedStudyContent } from '../services/geminiService';
-import { updateProgressCache, fetchStudyLevelProgress, ENABLE_FIREBASE_AUTH } from '../services/firebaseService';
+import { updateProgressCache, fetchStudyLevelProgress, ENABLE_FIREBASE_AUTH, recordSchoolQuizAnswer } from '../services/firebaseService';
 
 const XP_PER_CORRECT_ANSWER = 25;
 const MAX_DAILY_REFRESHES = 10;
@@ -357,6 +357,17 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
             if (newHearts <= 0) {
                 setQuizFailed(true);
             }
+        }
+
+        // [MULTI-TENANT] Registra acerto/erro para o painel do professor (matérias de colégio)
+        if (currentTrail?.isSchoolTrail && currentTrail?.schoolId && user?.uid) {
+            recordSchoolQuizAnswer(
+                { uid: user.uid, displayName: user.displayName, email: user.email },
+                currentTrail.schoolId,
+                currentTrail.id,
+                currentTrail.title,
+                correct
+            ).catch(console.error);
         }
     };
 

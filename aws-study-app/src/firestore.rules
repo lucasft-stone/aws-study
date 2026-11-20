@@ -30,6 +30,12 @@ service cloud.firestore {
         allow read: if request.auth != null;
         allow write, create, update, delete: if request.auth != null;
       }
+
+      // Desempenho dos alunos por matéria (acertos/erros em quizzes)
+      match /performance/{perfId} {
+        allow read: if request.auth != null;
+        allow write, create, update, delete: if request.auth != null;
+      }
     }
 
     // Regras para configurações globais do sistema ('announcement', 'aiConfig')
