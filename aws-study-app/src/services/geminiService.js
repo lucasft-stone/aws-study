@@ -109,6 +109,43 @@ export const callGeminiAPI = async (payload, selectedModel = DEFAULT_MODEL, isRo
 };
 
 /**
+ * Normaliza a resposta da IA para o formato esperado pelo app.
+ * Diferentes modelos/provedores podem retornar arrays raiz ou chaves alternativas.
+ */
+const normalizeAIResponse = (data, type) => {
+    if (!data || typeof data !== 'object') return data;
+
+    // Caso 1: modelo retornou um ARRAY raiz (ex: [{question...}, ...] ou [{front...}, ...])
+    if (Array.isArray(data)) {
+        if (type === 'quiz') return { questions: data };
+        if (type === 'anki') return { cards: data };
+        return data;
+    }
+
+    const d = { ...data };
+
+    // Caso 2: chaves alternativas comuns por modelo
+    if (type === 'quiz' && !d.questions) {
+        d.questions = d.questoes || d.perguntas || d.quiz || d.exercises || d.exercicios || d.items;
+    }
+    if (type === 'anki' && !d.cards) {
+        d.cards = d.flashcards || d.cartoes || d.ankiCards || d.anki || d.items;
+    }
+    if ((type === 'study' || type === 'expand_study') && !d.studyMaterial) {
+        d.studyMaterial = d.studyContent || d.material || d.study || d.teoria || d.theory || d.content || d.text;
+    }
+
+    // Caso 3: alguma chave contém um JSON stringificado dentro (ex: questions: "[{...}]")
+    for (const k of ['questions', 'cards']) {
+        if (typeof d[k] === 'string') {
+            try { d[k] = JSON.parse(d[k].replace(/```json\n?|```/g, '').trim()); } catch { /* mantém */ }
+        }
+    }
+
+    return d;
+};
+
+/**
  * Gera conteúdo rico (Material de Estudo, Quiz de Simulados ou Flashcards Anki).
  * Detecta se o tópico é específico de AWS ou se é um assunto genérico/customizado pelo usuário.
  */
@@ -320,5 +357,6 @@ Retorne o resultado no esquema JSON especificado.`;
         }
     };
 
-    return await callGeminiAPI(payload, selectedModel, isRoot);
+    const rawResult = await callGeminiAPI(payload, selectedModel, isRoot);
+    return normalizeAIResponse(rawResult, type);
 };
