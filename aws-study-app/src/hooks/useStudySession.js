@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { fetchGeneratedStudyContent } from '../services/geminiService';
-import { updateProgressCache, fetchStudyLevelProgress, ENABLE_FIREBASE_AUTH, recordSchoolQuizAnswer, recordSchoolScore } from '../services/firebaseService';
+import { updateProgressCache, fetchStudyLevelProgress, ENABLE_FIREBASE_AUTH, recordSchoolQuizAnswer, recordSchoolScore, fetchSchoolTrailById } from '../services/firebaseService';
 
 const XP_PER_CORRECT_ANSWER = 25;
 const MAX_DAILY_REFRESHES = 10;
@@ -209,6 +209,18 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
 
     const selectTrail = async (trail) => {
         setSessionError('');
+        // [MULTI-TENANT] Matérias de colégio: busca a versão MAIS RECENTE do Firestore
+        // para refletir imediatamente o que o professor publicou/regenerou.
+        if (trail.isSchoolTrail && trail.schoolId) {
+            const freshSubject = await fetchSchoolTrailById(trail.schoolId, trail.id);
+            const merged = freshSubject ? { ...trail, ...freshSubject } : trail;
+            setCurrentTrail(merged);
+            if (merged.cachedStudy || merged.content) {
+                setStudyContent(merged.cachedStudy || merged.content);
+            }
+            setAppState('trail_options');
+            return;
+        }
         if (user?.uid && trail.id.startsWith('level-')) {
             const cachedData = await fetchStudyLevelProgress(user.uid, trail.id);
             if (cachedData) {

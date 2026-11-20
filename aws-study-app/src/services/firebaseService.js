@@ -628,6 +628,21 @@ export const fetchSchoolTrails = async (schoolId) => {
 };
 
 /**
+ * [MULTI-TENANT / TRILHAS DE MATÉRIA] Busca UMA matéria atualizada direto do banco.
+ * Garante que o aluno sempre veja o conteúdo mais recente publicado pelo professor.
+ */
+export const fetchSchoolTrailById = async (schoolId, subjectId) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !schoolId || !subjectId) return null;
+    try {
+        const docSnap = await getDoc(doc(db, 'schools', schoolId, 'subjects', subjectId));
+        return docSnap.exists() ? { id: docSnap.id, schoolId, isSchoolTrail: true, ...docSnap.data() } : null;
+    } catch (err) {
+        console.error("Erro ao buscar matéria atualizada:", err);
+        return null;
+    }
+};
+
+/**
  * [MULTI-TENANT / TRILHAS DE MATÉRIA] Cria uma matéria/trilha no colégio.
  */
 export const createSchoolTrail = async (schoolId, trailData) => {
