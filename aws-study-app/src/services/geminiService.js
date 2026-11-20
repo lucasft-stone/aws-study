@@ -1,40 +1,74 @@
-import { GoogleGenAI } from "@google/genai";
+/**
+ * Serviço de IA unificado via OpenRouter (API compatível com OpenAI Chat Completions).
+ * Permite trocar entre modelos de múltiplos provedores (Google, OpenAI, Meta, DeepSeek, etc.)
+ * usando uma única chave de API (VITE_OPENROUTER_API_KEY).
+ */
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-const genAI = apiKey ? new GoogleGenAI({ apiKey }) : null;
+export const DEFAULT_MODEL = 'google/gemini-2.5-flash';
 
-export const GEMINI_MODELS = [
-    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recomendado)' },
-    { id: 'gemini-3-flash-preview', name: 'Gemini 3.0 Flash' },
-    { id: 'gemma-3-27b-it', name: 'Gemma 3.27B IT' },
-    { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite' },
+export const AI_MODELS = [
+    { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recomendado)' },
+    { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite (Rápido/Barato)' },
+    { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini (OpenAI)' },
+    { id: 'openai/gpt-4o', name: 'GPT-4o (OpenAI Premium)' },
+    { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (Anthropic)' },
+    { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (Meta)' },
+    { id: 'deepseek/deepseek-chat-v3-0324', name: 'DeepSeek V3' },
+    { id: 'qwen/qwen-2.5-72b-instruct', name: 'Qwen 2.5 72B' },
+    { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Grátis)' },
+    { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B (Grátis)' },
+];
+
+// Alias mantido para retrocompatibilidade com imports existentes
+export const GEMINI_MODELS = AI_MODELS;
+
+// Cadeia de fallbacks caso o modelo principal falhe ou esteja indisponível
+const FALLBACK_CHAIN = [
+    'google/gemini-2.5-flash',
+    'meta-llama/llama-3.3-70b-instruct',
+    'google/gemini-2.0-flash-exp:free',
 ];
 
 /**
- * Executa a chamada à API Gemini com suporte a fallback de modelos.
+ * Executa a chamada à API (OpenRouter) com suporte a fallback de modelos.
+ * Mantém a assinatura original (payload no formato Gemini) para não quebrar os consumidores.
  */
-export const callGeminiAPI = async (payload, selectedModel = 'gemini-2.5-flash', isRoot = false) => {
-    if (!genAI) {
-        throw new Error("VITE_GEMINI_API_KEY não configurada no arquivo .env");
+export const callGeminiAPI = async (payload, selectedModel = DEFAULT_MODEL, isRoot = false) => {
+    if (!OPENROUTER_API_KEY) {
+        throw new Error("VITE_OPENROUTER_API_KEY não configurada no arquivo .env");
     }
+
+    // Converte o payload do formato Gemini para mensagens no formato OpenAI/OpenRouter
+    const userText = payload.contents
+        ?.map(c => (c.parts || []).map(p => p.text).join('\n'))
+        .join('\n\n') || '';
 
     const attemptApiCall = async (model) => {
         try {
-            let config = payload.generationConfig;
-            // O modelo Gemma 3 não suporta responseMimeType nem responseSchema estruturado
-            if (model.includes('gemma')) {
-                config = { ...config };
-                delete config.responseMimeType;
-                delete config.responseSchema;
+            const response = await fetch(OPENROUTER_URL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': window.location.origin,
+                    'X-Title': 'StudyBot - Plataforma de Estudos',
+                },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{ role: 'user', content: userText }],
+                    response_format: { type: 'json_object' },
+                }),
+            });
+
+            if (!response.ok) {
+                const errBody = await response.text().catch(() => '');
+                throw new Error(`OpenRouter HTTP ${response.status}: ${errBody.slice(0, 300)}`);
             }
 
-            const response = await genAI.models.generateContent({
-                model: model,
-                contents: payload.contents,
-                config: config,
-            });
-            
-            let jsonText = response.text;
+            const data = await response.json();
+            let jsonText = data?.choices?.[0]?.message?.content;
 
             if (jsonText && typeof jsonText === 'string') {
                 // Remove formatação markdown se houver
@@ -46,12 +80,12 @@ export const callGeminiAPI = async (payload, selectedModel = 'gemini-2.5-flash',
             }
             return JSON.parse(jsonText);
         } catch (error) {
-            console.error(`Falha na chamada da API Gemini com o modelo ${model}:`, error);
+            console.error(`Falha na chamada da API com o modelo ${model}:`, error);
             throw error;
         }
     };
 
-    // Tenta primeiro o modelo selecionado pelo usuário se for Root ou tentar a ordem
+    // Tenta primeiro o modelo selecionado pelo usuário (se for Root/Admin)
     if (isRoot && selectedModel) {
         try {
             console.log(`Usuário root executando modelo customizado: ${selectedModel}`);
@@ -61,17 +95,16 @@ export const callGeminiAPI = async (payload, selectedModel = 'gemini-2.5-flash',
         }
     }
 
-    // Tenta o modelo padrão
-    try {
-        return await attemptApiCall('gemini-2.5-flash');
-    } catch {
-        // Segundo fallback caso o 2.5 flash oscile
+    // Tenta a cadeia de fallbacks em ordem
+    let lastError = null;
+    for (const model of FALLBACK_CHAIN) {
         try {
-            return await attemptApiCall('gemini-3-flash-preview');
-        } catch (fallbackError) {
-            throw new Error(`Não foi possível obter resposta da IA: ${fallbackError.message}`);
+            return await attemptApiCall(model);
+        } catch (error) {
+            lastError = error;
         }
     }
+    throw new Error(`Não foi possível obter resposta da IA: ${lastError?.message || 'erro desconhecido'}`);
 };
 
 /**

@@ -79,7 +79,7 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
     const [studyContent, setStudyContent] = useState(() => savedLocalSession?.studyContent || '');
     const [quizQuestions, setQuizQuestions] = useState(() => savedLocalSession?.quizQuestions || []);
     const [ankiCards, setAnkiCards] = useState(() => savedLocalSession?.ankiCards || []);
-    const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+    const [selectedModel, setSelectedModel] = useState('google/gemini-2.5-flash');
 
     useEffect(() => {
         if (ENABLE_FIREBASE_AUTH) {

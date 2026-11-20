@@ -591,6 +591,24 @@ export const createSchoolTrail = async (schoolId, trailData) => {
 };
 
 /**
+ * [MULTI-TENANT / TRILHAS DE MATÉRIA] Atualiza uma matéria/trilha do colégio (ex: cache de conteúdo IA).
+ */
+export const updateSchoolTrail = async (schoolId, subjectId, updatedData) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !schoolId || !subjectId) return;
+    const docRef = doc(db, 'schools', schoolId, 'subjects', subjectId);
+    await updateDoc(docRef, { ...updatedData, updatedAt: new Date() });
+};
+
+/**
+ * [MULTI-TENANT / TRILHAS DE MATÉRIA] Exclui uma matéria/trilha do colégio.
+ */
+export const deleteSchoolTrail = async (schoolId, subjectId) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !schoolId || !subjectId) return;
+    const docRef = doc(db, 'schools', schoolId, 'subjects', subjectId);
+    await deleteDoc(docRef);
+};
+
+/**
  * [MULTI-TENANT / ALUNO] Matricula um aluno em um colégio pelo código de acesso.
  */
 export const enrollStudentInSchoolByCode = async (studentUid, code) => {

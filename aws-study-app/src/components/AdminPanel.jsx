@@ -24,7 +24,9 @@ import {
     updateSchool,
     deleteSchool,
     fetchSchoolTrails,
-    createSchoolTrail
+    createSchoolTrail,
+    updateSchoolTrail,
+    deleteSchoolTrail
 } from '../services/firebaseService';
 import { fetchGeneratedStudyContent } from '../services/geminiService';
 import QuizEditorModal from './QuizEditorModal';
@@ -270,7 +272,7 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
 
         try {
             const mockTrail = { title: sandboxTopic, content: sandboxTopic };
-            const res = await fetchGeneratedStudyContent(mockTrail, sandboxType, 'gemini-2.5-flash', true);
+            const res = await fetchGeneratedStudyContent(mockTrail, sandboxType, 'google/gemini-2.5-flash', true);
             const endTime = Date.now();
             setSandboxTimeMs(endTime - startTime);
             setSandboxResult(res);
@@ -481,15 +483,15 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
         setPackStepMessage(`📚 Etapa 1/3: Gerando Material Teórico com IA para "${trail.title}"... Por favor aguarde.`);
 
         try {
-            const studyRes = await fetchGeneratedStudyContent(trail, 'study', 'gemini-2.5-flash', true);
+            const studyRes = await fetchGeneratedStudyContent(trail, 'study', 'google/gemini-2.5-flash', true);
             const studyText = studyRes?.studyContent || '';
 
             setPackStepMessage(`📝 Etapa 2/3: Sintetizando Simulados e Exercícios de Múltipla Escolha... Por favor aguarde.`);
-            const quizRes = await fetchGeneratedStudyContent(trail, 'quiz', 'gemini-2.5-flash', true);
+            const quizRes = await fetchGeneratedStudyContent(trail, 'quiz', 'google/gemini-2.5-flash', true);
             const questions = quizRes?.questions || [];
 
             setPackStepMessage(`🧠 Etapa 3/3: Estruturando Cartões Anki para Memorização Espaçada... Por favor aguarde.`);
-            const ankiRes = await fetchGeneratedStudyContent(trail, 'anki', 'gemini-2.5-flash', true);
+            const ankiRes = await fetchGeneratedStudyContent(trail, 'anki', 'google/gemini-2.5-flash', true);
             const flashcards = ankiRes?.flashcards || [];
 
             setPackStepMessage(`💾 Finalizando e Publicando Pacote para Todos os Alunos...`);
@@ -511,6 +513,58 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
             setIsGeneratingPack(false);
             setGeneratingTrailId(null);
             setPackStepMessage('');
+        }
+    };
+
+    const handleGenerateSchoolPack = async (subject) => {
+        if (!selectedSchool) return;
+        setIsGeneratingPack(true);
+        setGeneratingTrailId(subject.id);
+        setPackStepMessage(`📚 Etapa 1/3: Gerando Material Teórico com IA para "${subject.title}"... Por favor aguarde.`);
+
+        try {
+            const studyRes = await fetchGeneratedStudyContent(subject, 'study', 'google/gemini-2.5-flash', true);
+            const studyText = studyRes?.studyContent || '';
+
+            setPackStepMessage(`📝 Etapa 2/3: Sintetizando Simulados e Exercícios de Múltipla Escolha... Por favor aguarde.`);
+            const quizRes = await fetchGeneratedStudyContent(subject, 'quiz', 'google/gemini-2.5-flash', true);
+            const questions = quizRes?.questions || [];
+
+            setPackStepMessage(`🧠 Etapa 3/3: Estruturando Cartões Anki para Memorização Espaçada... Por favor aguarde.`);
+            const ankiRes = await fetchGeneratedStudyContent(subject, 'anki', 'google/gemini-2.5-flash', true);
+            const flashcards = ankiRes?.flashcards || [];
+
+            setPackStepMessage(`💾 Finalizando e Publicando Pacote para os alunos de ${selectedSchool.name}...`);
+            await updateSchoolTrail(selectedSchool.id, subject.id, {
+                cachedStudy: studyText,
+                cachedQuiz: questions,
+                cachedAnki: flashcards,
+                published: true
+            });
+
+            setActionMessage(`🎉 Pacote completo gerado e publicado para "${subject.title}" em ${selectedSchool.name}!`);
+            logAdminAction(user, 'generate_school_pack', `Matéria: "${subject.title}" em ${selectedSchool.name}`);
+            await handleOpenSchoolSubjects(selectedSchool);
+        } catch (err) {
+            console.error("Erro ao gerar pacote do colégio:", err);
+            setActionMessage("Erro ao gerar pacote de conteúdo: " + err.message);
+        } finally {
+            setIsGeneratingPack(false);
+            setGeneratingTrailId(null);
+            setPackStepMessage('');
+        }
+    };
+
+    const handleDeleteSchoolSubject = async (subject) => {
+        if (!selectedSchool) return;
+        if (!window.confirm(`Excluir a matéria "${subject.title}" de ${selectedSchool.name}?`)) return;
+        try {
+            await deleteSchoolTrail(selectedSchool.id, subject.id);
+            setActionMessage(`Matéria "${subject.title}" excluída com sucesso!`);
+            logAdminAction(user, 'delete_school_subject', `Matéria: "${subject.title}" em ${selectedSchool.name}`);
+            await handleOpenSchoolSubjects(selectedSchool);
+        } catch (err) {
+            setActionMessage("Erro ao excluir matéria: " + err.message);
         }
     };
 
@@ -2341,12 +2395,25 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
                                             <h5 className="font-extrabold text-xs text-slate-800 dark:text-white">{sub.title}</h5>
                                             <span className="text-[10px] text-indigo-500 font-bold">{sub.topic || 'Geral'}</span>
                                         </div>
-                                        <button
-                                            onClick={() => handleGenerateGlobalPack(sub)}
-                                            className="bg-indigo-600 text-white font-extrabold px-3 py-1 rounded-lg text-[10px]"
-                                        >
-                                            ⚡ Gerar Pacote IA
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            {sub.cachedStudy && (
+                                                <span className="text-[9px] font-extrabold text-emerald-500 uppercase" title="Conteúdo IA já gerado">✔ Conteúdo</span>
+                                            )}
+                                            <button
+                                                onClick={() => handleGenerateSchoolPack(sub)}
+                                                disabled={isGeneratingPack}
+                                                className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold px-3 py-1 rounded-lg text-[10px]"
+                                            >
+                                                {generatingTrailId === sub.id ? '⏳ Gerando...' : '⚡ Gerar Pacote IA'}
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteSchoolSubject(sub)}
+                                                className="bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 font-extrabold px-2.5 py-1 rounded-lg text-[10px]"
+                                                title="Excluir matéria"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
                                     </div>
                                 ))
                             )}
