@@ -25,6 +25,15 @@ export default function TeacherPanel({ user, teacherSchools = [], handleReturnHo
     const [selectedSchool, setSelectedSchool] = useState(teacherSchools[0] || null);
     const [activeTab, setActiveTab] = useState('subjects'); // 'subjects' | 'students' | 'performance'
 
+    // Garante seleção quando a lista de colégios chega de forma assíncrona
+    useEffect(() => {
+        if (!selectedSchool && teacherSchools.length > 0) {
+            setSelectedSchool(teacherSchools[0]);
+        } else if (selectedSchool && teacherSchools.length > 0 && !teacherSchools.find(s => s.id === selectedSchool.id)) {
+            setSelectedSchool(teacherSchools[0]);
+        }
+    }, [teacherSchools, selectedSchool]);
+
     const [subjects, setSubjects] = useState([]);
     const [students, setStudents] = useState([]);
     const [performance, setPerformance] = useState([]);
@@ -202,21 +211,48 @@ export default function TeacherPanel({ user, teacherSchools = [], handleReturnHo
                 </button>
             </div>
 
-            {/* Seletor de Colégio (se lecionar em mais de um) */}
-            {teacherSchools.length > 1 && (
-                <div className="mb-4">
-                    <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Colégio</label>
-                    <select
-                        value={selectedSchool.id}
-                        onChange={(e) => setSelectedSchool(teacherSchools.find(s => s.id === e.target.value))}
-                        className="w-full bg-white dark:bg-gray-800 border border-slate-300 dark:border-gray-600 text-slate-800 dark:text-white rounded-xl p-2.5 text-sm font-semibold"
-                    >
+            {/* Seletor de Colégio (sempre visível; essencial quando leciona em mais de um) */}
+            <div className="mb-4">
+                <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1.5">
+                    🏫 Colégio em gestão {teacherSchools.length > 1 ? `(${teacherSchools.length} vinculados)` : ''}
+                </label>
+                {teacherSchools.length > 1 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {teacherSchools.map(s => (
-                            <option key={s.id} value={s.id}>🏫 {s.name}</option>
+                            <button
+                                key={s.id}
+                                onClick={() => setSelectedSchool(s)}
+                                className={`p-3 rounded-2xl border-2 text-left transition-all flex items-center gap-3 ${
+                                    selectedSchool?.id === s.id
+                                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/50 shadow-md'
+                                        : 'border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-indigo-300'
+                                }`}
+                            >
+                                <span className="text-2xl">🏫</span>
+                                <div className="min-w-0">
+                                    <p className={`font-extrabold text-sm truncate ${selectedSchool?.id === s.id ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-800 dark:text-white'}`}>
+                                        {s.name}
+                                    </p>
+                                    <p className="text-[10px] font-bold text-slate-400">
+                                        🔑 {s.code} • 👥 {s.studentUids?.length || 0} aluno(s)
+                                    </p>
+                                </div>
+                                {selectedSchool?.id === s.id && (
+                                    <span className="ml-auto text-indigo-500 font-extrabold">✔</span>
+                                )}
+                            </button>
                         ))}
-                    </select>
-                </div>
-            )}
+                    </div>
+                ) : (
+                    <div className="p-3 rounded-2xl border-2 border-indigo-500 bg-indigo-50 dark:bg-indigo-950/50 flex items-center gap-3">
+                        <span className="text-2xl">🏫</span>
+                        <div>
+                            <p className="font-extrabold text-sm text-indigo-700 dark:text-indigo-300">{selectedSchool?.name}</p>
+                            <p className="text-[10px] font-bold text-slate-400">🔑 {selectedSchool?.code}</p>
+                        </div>
+                    </div>
+                )}
+            </div>
 
             {/* Card de informações do colégio */}
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 mb-5 text-white shadow-lg">

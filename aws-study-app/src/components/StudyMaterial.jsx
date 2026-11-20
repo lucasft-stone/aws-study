@@ -914,20 +914,22 @@ export default function StudyMaterial({
                         📓 Anotações
                     </button>
 
-                    {/* Botão de Modo Edição Completa do Material */}
-                    <button
-                        onClick={() => {
-                            setEditableText(cleanTextForEditing(studyContent || ''));
-                            setIsEditingFullMaterial(true);
-                        }}
-                        title="Editar o material completo, fórmulas e gráficos com visualização ao vivo em tempo real"
-                        className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-[11px] sm:text-xs py-1.5 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-1 shadow-sm whitespace-nowrap flex-shrink-0"
-                    >
-                        ✏️ Editar Material
-                    </button>
+                    {/* Botão de Modo Edição Completa do Material (apenas Admin) */}
+                    {isRoot && (
+                        <button
+                            onClick={() => {
+                                setEditableText(cleanTextForEditing(studyContent || ''));
+                                setIsEditingFullMaterial(true);
+                            }}
+                            title="Editar o material completo, fórmulas e gráficos com visualização ao vivo em tempo real"
+                            className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-[11px] sm:text-xs py-1.5 px-3 rounded-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-1 shadow-sm whitespace-nowrap flex-shrink-0"
+                        >
+                            ✏️ Editar Material
+                        </button>
+                    )}
 
-                    {/* Botão de Continuar e Aprofundar Estudo */}
-                    {expandStudyMaterial && (
+                    {/* Botão de Continuar e Aprofundar Estudo (bloqueado para alunos em matérias de colégio) */}
+                    {expandStudyMaterial && (isRoot || !currentTrail?.isSchoolTrail) && (
                         <button
                             onClick={() => expandStudyMaterial(currentTrail)}
                             disabled={refreshLimitReached || isExpandingStudy || currentTrail?.allowUserExpansion === false}
@@ -946,23 +948,25 @@ export default function StudyMaterial({
                         </button>
                     )}
 
-                    {/* Botão de Regerar Material com IA */}
-                    <button
-                        onClick={() => generateContent(currentTrail, 'study', true)}
-                        disabled={refreshLimitReached || currentTrail?.allowUserExpansion === false}
-                        title={
-                            currentTrail?.allowUserExpansion === false 
-                                ? 'Trilha Oficial Travada pelo Admin' 
-                                : refreshLimitReached ? 'Limite de atualizações diárias atingido' : 'Regerar este material de estudo com IA'
-                        }
-                        className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 py-1.5 px-3 rounded-xl transition-colors disabled:opacity-40 border border-indigo-100 dark:border-indigo-900/50 flex items-center gap-1 text-[11px] sm:text-xs font-extrabold whitespace-nowrap flex-shrink-0"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="23 4 23 10 17 10"></polyline>
-                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                        </svg>
-                        <span>🔄 Regerar</span>
-                    </button>
+                    {/* Botão de Regerar Material com IA (bloqueado para alunos em matérias de colégio) */}
+                    {(isRoot || !currentTrail?.isSchoolTrail) && (
+                        <button
+                            onClick={() => generateContent(currentTrail, 'study', true)}
+                            disabled={refreshLimitReached || currentTrail?.allowUserExpansion === false}
+                            title={
+                                currentTrail?.allowUserExpansion === false 
+                                    ? 'Trilha Oficial Travada pelo Admin' 
+                                    : refreshLimitReached ? 'Limite de atualizações diárias atingido' : 'Regerar este material de estudo com IA'
+                            }
+                            className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 py-1.5 px-3 rounded-xl transition-colors disabled:opacity-40 border border-indigo-100 dark:border-indigo-900/50 flex items-center gap-1 text-[11px] sm:text-xs font-extrabold whitespace-nowrap flex-shrink-0"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                            </svg>
+                            <span>🔄 Regerar</span>
+                        </button>
+                    )}
                 </div>
             </div>
 

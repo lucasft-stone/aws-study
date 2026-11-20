@@ -230,6 +230,18 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
     };
 
     const generateContent = async (trail, type, forceRefresh = false) => {
+        // [MULTI-TENANT] Alunos NÃO podem gerar nem regerar conteúdo de matérias de colégio.
+        // Eles apenas consomem o que o professor/admin publicou previamente.
+        if (trail?.isSchoolTrail && !isRoot) {
+            const key = type === 'study' ? 'cachedStudy' : type === 'quiz' ? 'cachedQuiz' : 'cachedAnki';
+            const published = type === 'study' ? (trail?.cachedStudy || trail?.content) : trail?.[key];
+            if (!published || forceRefresh) {
+                setSessionError('📚 Este conteúdo ainda não foi publicado pelo seu professor. Aguarde a liberação!');
+                setAppState('trail_options');
+                return;
+            }
+        }
+
         const isUnlimitedUser = isRoot || userData?.isUnlimited === true;
         const maxRefreshesAllowed = isUnlimitedUser ? Infinity : (userData?.customMaxDailyRefreshes ?? MAX_DAILY_REFRESHES);
 
@@ -359,7 +371,7 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
             }
         }
 
-        // [MULTI-TENANT] Registra acerto/erro para o painel do professor (matérias de colégio)
+        // [MULTI-TENANT] Registra acerto/erro para o painel do professor (matérias de colégio).
         if (currentTrail?.isSchoolTrail && currentTrail?.schoolId && user?.uid) {
             recordSchoolQuizAnswer(
                 { uid: user.uid, displayName: user.displayName, email: user.email },

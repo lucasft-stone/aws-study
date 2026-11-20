@@ -353,7 +353,7 @@ export default function App() {
                         userData={userData}
                         generateContent={generateContent}
                         handleReturnHome={handleReturnHome}
-                        handleEditTrail={handleOpenEditTrail}
+                        handleEditTrail={isRoot ? handleOpenEditTrail : undefined}
                     />
                 );
 
