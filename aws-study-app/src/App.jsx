@@ -354,6 +354,7 @@ export default function App() {
                         generateContent={generateContent}
                         handleReturnHome={handleReturnHome}
                         handleEditTrail={isRoot ? handleOpenEditTrail : undefined}
+                        apiError={currentError}
                     />
                 );
 
