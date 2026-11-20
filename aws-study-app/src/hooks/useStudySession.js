@@ -234,7 +234,9 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         // Eles apenas consomem o que o professor/admin publicou previamente.
         if (trail?.isSchoolTrail && !isRoot) {
             const key = type === 'study' ? 'cachedStudy' : type === 'quiz' ? 'cachedQuiz' : 'cachedAnki';
-            const raw = type === 'study' ? (trail?.cachedStudy || trail?.content) : trail?.[key];
+            // Para matéria de colégio, SÓ conta o que o professor publicou (cachedStudy gerado),
+            // nunca o campo 'content' bruto de descrição da matéria.
+            const raw = trail?.[key];
             const hasContent = Array.isArray(raw) ? raw.length > 0 : (typeof raw === 'string' ? raw.trim().length > 0 : !!raw);
             if (!hasContent || forceRefresh) {
                 setSessionError('🏫 O professor ainda não gerou/publicou este conteúdo. Avise-o para liberar o material!');

@@ -6,7 +6,7 @@ import AchievementsModal from './AchievementsModal';
 import StudyStatsModal from './StudyStatsModal';
 import DailyChallengeModal from './DailyChallengeModal';
 import SchoolEnrollModal from './SchoolEnrollModal';
-import { checkIsAdmin, fetchSystemAnnouncement, saveUserData, fetchStudentSchoolScore } from '../services/firebaseService';
+import { checkIsAdmin, fetchSystemAnnouncement, saveUserData, fetchStudentSchoolScore, isStudentPreviewMode, setStudentPreviewMode } from '../services/firebaseService';
 import { resolveTopicIcon, getHideAwsTopicSetting } from '../utils/topicHelpers';
 
 export default function Home({
@@ -45,6 +45,13 @@ export default function Home({
     const [showChallengeModal, setShowChallengeModal] = useState(false);
     const [showSchoolEnrollModal, setShowSchoolEnrollModal] = useState(false);
     const [schoolScore, setSchoolScore] = useState(null);
+    const [studentPreview, setStudentPreview] = useState(() => isStudentPreviewMode());
+
+    const toggleStudentPreview = () => {
+        const next = !studentPreview;
+        setStudentPreviewMode(next);
+        window.location.reload(); // recarrega para aplicar permissões de aluno em todo o app
+    };
 
     const handleFinishChallenge = (bonusXp) => {
         if (bonusXp > 0 && user?.uid) {
@@ -215,6 +222,15 @@ export default function Home({
                             className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] sm:text-xs font-bold py-1 px-2 rounded-xl transition-transform hover:scale-105 shadow"
                         >
                             👑 Admin
+                        </button>
+                    )}
+                    {(isRoot || studentPreview) && (
+                        <button
+                            onClick={toggleStudentPreview}
+                            title={studentPreview ? 'Voltar a enxergar o app como Administrador' : 'Visualizar o app exatamente como um aluno comum (sem privilégios de admin)'}
+                            className={`${studentPreview ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-slate-500 hover:bg-slate-400'} text-white text-[11px] sm:text-xs font-bold py-1 px-2 rounded-xl transition-transform hover:scale-105 shadow`}
+                        >
+                            {studentPreview ? '👁️ Voltar p/ Admin' : '👁️ Modo Aluno'}
                         </button>
                     )}
                     {ENABLE_FIREBASE_AUTH && (

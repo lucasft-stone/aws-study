@@ -38,8 +38,24 @@ export const isOwnerAdmin = (user) => {
 /**
  * Verifica se um usuário possui permissões de Administrador / Ilimitado (via Dono, Firestore ou lista).
  */
+/**
+ * Verifica se o admin ativou o "Modo Aluno" (preview sem privilégios de admin).
+ */
+export const isStudentPreviewMode = () => {
+    try { return localStorage.getItem('previewAsStudent') === 'true'; } catch { return false; }
+};
+
+export const setStudentPreviewMode = (enabled) => {
+    try {
+        if (enabled) localStorage.setItem('previewAsStudent', 'true');
+        else localStorage.removeItem('previewAsStudent');
+    } catch { /* ignora */ }
+};
+
 export const checkIsAdmin = (user) => {
     if (!user) return false;
+    // "Modo Aluno": o admin enxerga o app exatamente como um aluno comum
+    if (isStudentPreviewMode()) return false;
     if (isOwnerAdmin(user)) return true;
     
     // Administrador promovido via Firestore
