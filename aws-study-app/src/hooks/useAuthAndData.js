@@ -8,6 +8,9 @@ import {
     saveUserData, 
     fetchUserCustomTrails, 
     fetchGlobalTrails,
+    fetchUserData,
+    fetchSchoolById,
+    fetchSchoolTrails,
     createCustomTrail, 
     updateCustomTrail,
     deleteCustomTrail, 
@@ -23,18 +26,43 @@ export function useAuthAndData() {
     const [authLoading, setAuthLoading] = useState(true);
     const [authError, setAuthError] = useState('');
 
-    const reloadTrails = useCallback(async (currentUser) => {
-        if (!currentUser) return;
+    const reloadTrails = useCallback(async (currentUser, knownUserData = null) => {
+        const targetUser = currentUser || user;
+        if (!targetUser) return;
         try {
-            const userTrails = await fetchUserCustomTrails(currentUser.uid);
+            const userTrails = await fetchUserCustomTrails(targetUser.uid);
             const globals = await fetchGlobalTrails();
-            const isRootAdmin = currentUser.email === 'lucasft.pwa@gmail.com' || currentUser.uid === 'Wafgz4MpWUXOf7TKREcC9yZ5k073';
+            const isRootAdmin = targetUser.email === 'lucasft.pwa@gmail.com' || targetUser.uid === 'Wafgz4MpWUXOf7TKREcC9yZ5k073';
             const visibleGlobals = globals.filter(g => g.published !== false || isRootAdmin);
-            setCustomTrails([...visibleGlobals, ...userTrails]);
+
+            // [MULTI-TENANT] Carrega matérias dos colégios em que o aluno está matriculado
+            let schoolTrails = [];
+            try {
+                const uData = knownUserData || await fetchUserData(targetUser.uid);
+                const enrolledIds = Array.isArray(uData?.enrolledSchoolIds) ? uData.enrolledSchoolIds : [];
+                for (const schoolId of enrolledIds) {
+                    const school = await fetchSchoolById(schoolId);
+                    if (!school) continue;
+                    const subjects = await fetchSchoolTrails(schoolId);
+                    const publishedSubjects = subjects.filter(s => s.published !== false || isRootAdmin);
+                    schoolTrails.push(...publishedSubjects.map(subj => ({
+                        ...subj,
+                        schoolName: school.name,
+                        subjectTopic: subj.topic || 'Geral',
+                        topic: `🏫 ${school.name}`,
+                        icon: subj.icon || '🏫',
+                        isSchoolTrail: true
+                    })));
+                }
+            } catch (schoolErr) {
+                console.error("Erro ao carregar colégios do aluno:", schoolErr);
+            }
+
+            setCustomTrails([...visibleGlobals, ...schoolTrails, ...userTrails]);
         } catch (err) {
             console.error("Erro ao recarregar trilhas:", err);
         }
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         if (ENABLE_FIREBASE_AUTH) {
@@ -44,7 +72,7 @@ export function useAuthAndData() {
                         setUser(currentUser);
                         const data = await loadOrCreateUserData(currentUser, MAX_HEARTS);
                         setUserData(data);
-                        await reloadTrails(currentUser);
+                        await reloadTrails(currentUser, data);
                     } else {
                         setUser(null);
                         setUserData(null);

@@ -96,13 +96,15 @@ export default function Home({
         const explicitIcon = items.find(i => i.icon)?.icon;
         const icon = resolveTopicIcon(topicName, explicitIcon);
         const hasGlobal = items.some(i => i.isGlobal);
+        const hasSchool = items.some(i => i.isSchoolTrail);
 
         return {
             id: 'topic-custom-' + topicName,
             title: topicName,
             icon,
-            description: `${items.length} subtópico(s) de estudo`,
-            badge: hasGlobal ? '🌐 Oficial' : 'Personalizado',
+            description: hasSchool ? `Matérias do seu colégio (${items.length})` : `${items.length} subtópico(s) de estudo`,
+            badge: hasSchool ? '🏫 Colégio' : hasGlobal ? '🌐 Oficial' : 'Personalizado',
+            isSchoolTopic: hasSchool,
             items
         };
     });
@@ -391,9 +393,9 @@ export default function Home({
                                         disabled={isLocked}
                                         onClick={() => handleSelectTrail(item)}
                                         icon={isLocked ? '🔒' : (item.icon || activeTopic.icon || '📌')}
-                                        badge={item.isGlobal ? '🌐 Oficial' : undefined}
-                                        onEdit={activeTopic.id !== 'topic-aws' && handleEditTrail ? () => handleEditTrail(item) : undefined}
-                                        onDelete={activeTopic.id !== 'topic-aws' ? () => handleDeleteTrail(item.id) : undefined}
+                                        badge={item.isSchoolTrail ? '🏫 Colégio' : item.isGlobal ? '🌐 Oficial' : undefined}
+                                        onEdit={!item.isSchoolTrail && activeTopic.id !== 'topic-aws' && !activeTopic?.isSchoolTopic && handleEditTrail ? () => handleEditTrail(item) : undefined}
+                                        onDelete={!item.isSchoolTrail && activeTopic.id !== 'topic-aws' && !activeTopic?.isSchoolTopic ? () => handleDeleteTrail(item.id) : undefined}
                                     />
                                 );
                             })}

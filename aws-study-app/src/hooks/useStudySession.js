@@ -264,13 +264,14 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         try {
             const parsedData = await fetchGeneratedStudyContent(trail, type, selectedModel, isRoot);
 
+            const schoolId = trail?.schoolId || null;
             if (type === 'study' && parsedData.studyMaterial) {
                 setStudyContent(parsedData.studyMaterial);
-                if (user?.uid) await updateProgressCache(user.uid, trail.id, cacheKey, parsedData.studyMaterial);
+                if (user?.uid) await updateProgressCache(user.uid, trail.id, cacheKey, parsedData.studyMaterial, false, schoolId);
                 setAppState('studying_material');
             } else if (type === 'quiz' && parsedData.questions) {
                 setQuizQuestions(parsedData.questions);
-                if (user?.uid) await updateProgressCache(user.uid, trail.id, cacheKey, parsedData.questions);
+                if (user?.uid) await updateProgressCache(user.uid, trail.id, cacheKey, parsedData.questions, false, schoolId);
                 resetQuizState();
                 setAppState('quiz');
             } else if (type === 'anki' && parsedData.cards) {
@@ -282,7 +283,7 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
                     easeFactor: 2.5
                 }));
                 setAnkiCards(enrichedCards);
-                if (user?.uid) await updateProgressCache(user.uid, trail.id, cacheKey, enrichedCards);
+                if (user?.uid) await updateProgressCache(user.uid, trail.id, cacheKey, enrichedCards, false, schoolId);
                 resetAnkiState();
                 setAppState('studying_anki');
             }
@@ -322,9 +323,10 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
                 setCurrentTrail(prev => ({ ...prev, cachedStudy: newFullText, cachedQuiz: null, cachedAnki: null }));
 
                 if (user?.uid) {
-                    await updateProgressCache(user.uid, trail.id, 'cachedStudy', newFullText);
-                    await updateProgressCache(user.uid, trail.id, 'cachedQuiz', null);
-                    await updateProgressCache(user.uid, trail.id, 'cachedAnki', null);
+                    const schoolId = trail?.schoolId || null;
+                    await updateProgressCache(user.uid, trail.id, 'cachedStudy', newFullText, false, schoolId);
+                    await updateProgressCache(user.uid, trail.id, 'cachedQuiz', null, false, schoolId);
+                    await updateProgressCache(user.uid, trail.id, 'cachedAnki', null, false, schoolId);
                 }
 
                 await updateUserData({ dailyRefreshes: (userData?.dailyRefreshes || 0) + 1 });
@@ -386,7 +388,7 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
 
         // Salva progresso dos cards no cache
         if (user?.uid && currentTrail) {
-            updateProgressCache(user.uid, currentTrail.id, 'cachedAnki', updatedCards).catch(console.error);
+            updateProgressCache(user.uid, currentTrail.id, 'cachedAnki', updatedCards, false, currentTrail.schoolId || null).catch(console.error);
         }
 
         // Avança para o próximo card

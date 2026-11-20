@@ -394,13 +394,19 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
     const handleSaveTheoryContent = async (updatedTheory) => {
         if (!editingTheoryTrail) return;
         try {
-            await updateGlobalTrail(editingTheoryTrail.id, {
-                cachedStudy: updatedTheory,
-                updatedAt: new Date()
-            });
+            if (editingTheoryTrail.isSchoolTrail && editingTheoryTrail.schoolId) {
+                await updateSchoolTrail(editingTheoryTrail.schoolId, editingTheoryTrail.id, { cachedStudy: updatedTheory });
+                logAdminAction(user, 'edit_school_theory', `Teoria editada: "${editingTheoryTrail.title}"`);
+                if (selectedSchool) await handleOpenSchoolSubjects(selectedSchool);
+            } else {
+                await updateGlobalTrail(editingTheoryTrail.id, {
+                    cachedStudy: updatedTheory,
+                    updatedAt: new Date()
+                });
+                await loadGlobalTrailsList();
+                if (reloadTrails) reloadTrails();
+            }
             setActionMessage(`Material teórico da trilha "${editingTheoryTrail.title}" atualizado com sucesso!`);
-            await loadGlobalTrailsList();
-            if (reloadTrails) reloadTrails();
         } catch (err) {
             console.error("Erro ao salvar teoria:", err);
             setActionMessage("Erro ao salvar teoria: " + err.message);
@@ -411,13 +417,19 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
     const handleSaveQuizQuestions = async (updatedQuestions) => {
         if (!editingQuizTrail) return;
         try {
-            await updateGlobalTrail(editingQuizTrail.id, {
-                cachedQuiz: updatedQuestions,
-                updatedAt: new Date()
-            });
+            if (editingQuizTrail.isSchoolTrail && editingQuizTrail.schoolId) {
+                await updateSchoolTrail(editingQuizTrail.schoolId, editingQuizTrail.id, { cachedQuiz: updatedQuestions });
+                logAdminAction(user, 'edit_school_quiz', `Quiz editado: "${editingQuizTrail.title}"`);
+                if (selectedSchool) await handleOpenSchoolSubjects(selectedSchool);
+            } else {
+                await updateGlobalTrail(editingQuizTrail.id, {
+                    cachedQuiz: updatedQuestions,
+                    updatedAt: new Date()
+                });
+                await loadGlobalTrailsList();
+                if (reloadTrails) reloadTrails();
+            }
             setActionMessage(`Exercícios da trilha "${editingQuizTrail.title}" salvos com sucesso! (${updatedQuestions.length} questões)`);
-            await loadGlobalTrailsList();
-            if (reloadTrails) reloadTrails();
         } catch (err) {
             console.error("Erro ao salvar exercícios:", err);
             setActionMessage("Erro ao salvar exercícios: " + err.message);
@@ -428,13 +440,19 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
     const handleSaveAnkiCards = async (updatedCards) => {
         if (!editingAnkiTrail) return;
         try {
-            await updateGlobalTrail(editingAnkiTrail.id, {
-                cachedAnki: updatedCards,
-                updatedAt: new Date()
-            });
+            if (editingAnkiTrail.isSchoolTrail && editingAnkiTrail.schoolId) {
+                await updateSchoolTrail(editingAnkiTrail.schoolId, editingAnkiTrail.id, { cachedAnki: updatedCards });
+                logAdminAction(user, 'edit_school_anki', `Anki editado: "${editingAnkiTrail.title}"`);
+                if (selectedSchool) await handleOpenSchoolSubjects(selectedSchool);
+            } else {
+                await updateGlobalTrail(editingAnkiTrail.id, {
+                    cachedAnki: updatedCards,
+                    updatedAt: new Date()
+                });
+                await loadGlobalTrailsList();
+                if (reloadTrails) reloadTrails();
+            }
             setActionMessage(`Flashcards Anki da trilha "${editingAnkiTrail.title}" salvos com sucesso! (${updatedCards.length} cartões)`);
-            await loadGlobalTrailsList();
-            if (reloadTrails) reloadTrails();
         } catch (err) {
             console.error("Erro ao salvar cartões Anki:", err);
             setActionMessage("Erro ao salvar cartões Anki: " + err.message);
@@ -548,6 +566,41 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
         } catch (err) {
             console.error("Erro ao gerar pacote do colégio:", err);
             setActionMessage("Erro ao gerar pacote de conteúdo: " + err.message);
+        } finally {
+            setIsGeneratingPack(false);
+            setGeneratingTrailId(null);
+            setPackStepMessage('');
+        }
+    };
+
+    // Regenera UM tipo de conteúdo específico (Teoria, Quiz ou Anki) de uma matéria de colégio
+    const handleRegenerateSchoolContent = async (subject, type) => {
+        if (!selectedSchool) return;
+        const typeLabels = { study: 'Material Teórico', quiz: 'Simulado/Exercícios', anki: 'Flashcards Anki' };
+        if (!window.confirm(`Regenerar o conteúdo "${typeLabels[type]}" da matéria "${subject.title}" com IA? O conteúdo atual será substituído.`)) return;
+
+        setIsGeneratingPack(true);
+        setGeneratingTrailId(`${subject.id}-${type}`);
+        setPackStepMessage(`🔄 Regenerando ${typeLabels[type]} para "${subject.title}"... Por favor aguarde.`);
+
+        try {
+            // Usa a teoria atual como base para quiz/anki, se existir
+            const baseTrail = { ...subject, content: subject.cachedStudy || subject.content || subject.title };
+            const res = await fetchGeneratedStudyContent(baseTrail, type, 'google/gemini-2.5-flash', true);
+
+            let update = {};
+            if (type === 'study' && res?.studyContent) update = { cachedStudy: res.studyContent };
+            else if (type === 'quiz' && res?.questions) update = { cachedQuiz: res.questions };
+            else if (type === 'anki' && res?.flashcards) update = { cachedAnki: res.flashcards };
+            else throw new Error("A IA não retornou o conteúdo esperado.");
+
+            await updateSchoolTrail(selectedSchool.id, subject.id, update);
+            setActionMessage(`✅ ${typeLabels[type]} de "${subject.title}" regenerado com sucesso!`);
+            logAdminAction(user, 'regenerate_school_content', `${typeLabels[type]} regenerado: "${subject.title}" em ${selectedSchool.name}`);
+            await handleOpenSchoolSubjects(selectedSchool);
+        } catch (err) {
+            console.error("Erro ao regenerar conteúdo:", err);
+            setActionMessage("Erro ao regenerar conteúdo: " + err.message);
         } finally {
             setIsGeneratingPack(false);
             setGeneratingTrailId(null);
@@ -2385,35 +2438,87 @@ export default function AdminPanel({ user, handleReturnHome, reloadTrails }) {
                         </form>
 
                         {/* Lista de matérias existentes */}
-                        <div className="space-y-2 overflow-y-auto max-h-60 custom-scrollbar pr-1">
+                        <div className="space-y-2 overflow-y-auto max-h-80 custom-scrollbar pr-1">
                             {schoolSubjects.length === 0 ? (
                                 <p className="text-xs text-slate-400 italic text-center py-4">Nenhuma matéria criada para este colégio ainda.</p>
                             ) : (
                                 schoolSubjects.map(sub => (
-                                    <div key={sub.id} className="p-3 bg-slate-50 dark:bg-gray-900 rounded-xl border border-slate-200 dark:border-gray-700 flex items-center justify-between">
-                                        <div>
-                                            <h5 className="font-extrabold text-xs text-slate-800 dark:text-white">{sub.title}</h5>
-                                            <span className="text-[10px] text-indigo-500 font-bold">{sub.topic || 'Geral'}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {sub.cachedStudy && (
-                                                <span className="text-[9px] font-extrabold text-emerald-500 uppercase" title="Conteúdo IA já gerado">✔ Conteúdo</span>
-                                            )}
-                                            <button
-                                                onClick={() => handleGenerateSchoolPack(sub)}
-                                                disabled={isGeneratingPack}
-                                                className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold px-3 py-1 rounded-lg text-[10px]"
-                                            >
-                                                {generatingTrailId === sub.id ? '⏳ Gerando...' : '⚡ Gerar Pacote IA'}
-                                            </button>
+                                    <div key={sub.id} className="p-3 bg-slate-50 dark:bg-gray-900 rounded-xl border border-slate-200 dark:border-gray-700 space-y-2">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <h5 className="font-extrabold text-xs text-slate-800 dark:text-white truncate">{sub.title}</h5>
+                                                <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                                    <span className="text-[10px] text-indigo-500 font-bold">{sub.topic || 'Geral'}</span>
+                                                    <span className={`text-[9px] font-extrabold ${sub.cachedStudy ? 'text-emerald-500' : 'text-slate-400'}`}>📖 {sub.cachedStudy ? '✔' : '✖'}</span>
+                                                    <span className={`text-[9px] font-extrabold ${sub.cachedQuiz?.length ? 'text-emerald-500' : 'text-slate-400'}`}>📝 {sub.cachedQuiz?.length ? `✔ ${sub.cachedQuiz.length}q` : '✖'}</span>
+                                                    <span className={`text-[9px] font-extrabold ${sub.cachedAnki?.length ? 'text-emerald-500' : 'text-slate-400'}`}>🃏 {sub.cachedAnki?.length ? `✔ ${sub.cachedAnki.length}c` : '✖'}</span>
+                                                </div>
+                                            </div>
                                             <button
                                                 onClick={() => handleDeleteSchoolSubject(sub)}
-                                                className="bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 font-extrabold px-2.5 py-1 rounded-lg text-[10px]"
+                                                className="bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 font-extrabold px-2.5 py-1 rounded-lg text-[10px] flex-shrink-0"
                                                 title="Excluir matéria"
                                             >
                                                 🗑️
                                             </button>
                                         </div>
+
+                                        {/* Ações de Conteúdo: Ver/Editar + Regenerar por tipo */}
+                                        <div className="grid grid-cols-3 gap-1.5">
+                                            <button
+                                                onClick={() => setEditingTheoryTrail({ ...sub, schoolId: selectedSchool.id })}
+                                                className="bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 font-extrabold px-2 py-1.5 rounded-lg text-[10px] hover:bg-sky-200 transition-colors"
+                                                title="Visualizar e editar o material teórico"
+                                            >
+                                                📖 Teoria
+                                            </button>
+                                            <button
+                                                onClick={() => setEditingQuizTrail({ ...sub, schoolId: selectedSchool.id })}
+                                                className="bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-extrabold px-2 py-1.5 rounded-lg text-[10px] hover:bg-violet-200 transition-colors"
+                                                title="Visualizar e editar as questões do simulado"
+                                            >
+                                                📝 Quiz
+                                            </button>
+                                            <button
+                                                onClick={() => setEditingAnkiTrail({ ...sub, schoolId: selectedSchool.id })}
+                                                className="bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-extrabold px-2 py-1.5 rounded-lg text-[10px] hover:bg-amber-200 transition-colors"
+                                                title="Visualizar e editar os flashcards"
+                                            >
+                                                🃏 Anki
+                                            </button>
+                                            <button
+                                                onClick={() => handleRegenerateSchoolContent(sub, 'study')}
+                                                disabled={isGeneratingPack}
+                                                className="bg-sky-600 disabled:opacity-50 text-white font-extrabold px-2 py-1.5 rounded-lg text-[10px] hover:bg-sky-700 transition-colors"
+                                                title="Regenerar SOMENTE a teoria com IA"
+                                            >
+                                                {generatingTrailId === `${sub.id}-study` ? '⏳' : '🔄'} Teoria
+                                            </button>
+                                            <button
+                                                onClick={() => handleRegenerateSchoolContent(sub, 'quiz')}
+                                                disabled={isGeneratingPack}
+                                                className="bg-violet-600 disabled:opacity-50 text-white font-extrabold px-2 py-1.5 rounded-lg text-[10px] hover:bg-violet-700 transition-colors"
+                                                title="Regenerar SOMENTE o quiz com IA"
+                                            >
+                                                {generatingTrailId === `${sub.id}-quiz` ? '⏳' : '🔄'} Quiz
+                                            </button>
+                                            <button
+                                                onClick={() => handleRegenerateSchoolContent(sub, 'anki')}
+                                                disabled={isGeneratingPack}
+                                                className="bg-amber-600 disabled:opacity-50 text-white font-extrabold px-2 py-1.5 rounded-lg text-[10px] hover:bg-amber-700 transition-colors"
+                                                title="Regenerar SOMENTE os flashcards com IA"
+                                            >
+                                                {generatingTrailId === `${sub.id}-anki` ? '⏳' : '🔄'} Anki
+                                            </button>
+                                        </div>
+
+                                        <button
+                                            onClick={() => handleGenerateSchoolPack(sub)}
+                                            disabled={isGeneratingPack}
+                                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold px-3 py-1.5 rounded-lg text-[10px]"
+                                        >
+                                            {generatingTrailId === sub.id ? '⏳ Gerando Pacote Completo...' : '⚡ Gerar Pacote IA Completo (Teoria + Quiz + Anki)'}
+                                        </button>
                                     </div>
                                 ))
                             )}

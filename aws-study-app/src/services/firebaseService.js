@@ -108,6 +108,20 @@ export const logoutUser = async () => {
 /**
  * Carrega ou inicializa o documento do usuário no Firestore, salvando foto, nome e email.
  */
+/**
+ * Busca os dados brutos do usuário no Firestore (sem criar).
+ */
+export const fetchUserData = async (uid) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !uid) return null;
+    try {
+        const docSnap = await getDoc(doc(db, 'users', uid));
+        return docSnap.exists() ? docSnap.data() : null;
+    } catch (err) {
+        console.error("Erro ao buscar dados do usuário:", err);
+        return null;
+    }
+};
+
 export const loadOrCreateUserData = async (currentUser, maxHearts) => {
     if (!ENABLE_FIREBASE_AUTH || !db || !currentUser) {
         const today = new Date().toISOString().split('T')[0];
@@ -244,8 +258,15 @@ export const updateCustomTrail = async (uid, trailId, updatedData) => {
 /**
  * Salva no Firestore o cache de conteúdo gerado (material de estudo, quiz ou anki).
  */
-export const updateProgressCache = async (uid, trailId, cacheKey, content, isGlobal = false) => {
+export const updateProgressCache = async (uid, trailId, cacheKey, content, isGlobal = false, schoolId = null) => {
     if (!ENABLE_FIREBASE_AUTH || !db) return;
+
+    // Matérias de colégio: salva o cache no documento da matéria (compartilhado com todos os alunos)
+    if (schoolId) {
+        const subjectRef = doc(db, 'schools', schoolId, 'subjects', trailId);
+        await setDoc(subjectRef, { [cacheKey]: content, updatedAt: new Date() }, { merge: true });
+        return;
+    }
 
     if (isGlobal || (trailId && (trailId.startsWith('global-') || cacheKey.startsWith('global_')))) {
         const trailRef = doc(db, 'globalTrails', trailId);
@@ -516,6 +537,20 @@ export const fetchAuditLogs = async () => {
 /**
  * [MULTI-TENANT / ESCOLAS] Busca todas as instituições/colégios.
  */
+/**
+ * [MULTI-TENANT] Busca um colégio específico pelo ID.
+ */
+export const fetchSchoolById = async (schoolId) => {
+    if (!ENABLE_FIREBASE_AUTH || !db || !schoolId) return null;
+    try {
+        const docSnap = await getDoc(doc(db, 'schools', schoolId));
+        return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
+    } catch (err) {
+        console.error("Erro ao buscar colégio por ID:", err);
+        return null;
+    }
+};
+
 export const fetchSchools = async () => {
     if (!ENABLE_FIREBASE_AUTH || !db) return [];
     try {
