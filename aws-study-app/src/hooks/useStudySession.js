@@ -3,6 +3,46 @@ import { fetchGeneratedStudyContent } from '../services/geminiService';
 import { updateProgressCache, fetchStudyLevelProgress, ENABLE_FIREBASE_AUTH, recordSchoolQuizAnswer, recordSchoolScore, fetchSchoolTrailById } from '../services/firebaseService';
 
 const XP_PER_CORRECT_ANSWER = 25;
+
+/**
+ * Normaliza o gabarito de uma questão para o TEXTO EXATO de uma das opções.
+ * IAs podem retornar "A", "A)", "A. texto", variações de maiúsculas/espaços etc.
+ */
+export const resolveCorrectAnswer = (q) => {
+    if (!q) return '';
+    const options = Array.isArray(q.options) ? q.options : [];
+    const ca = String(q.correctAnswer || '').trim();
+    if (!ca) return options[0] || '';
+
+    // Match exato
+    if (options.includes(ca)) return ca;
+
+    // Match case-insensitive / espaços
+    const lowerCa = ca.toLowerCase();
+    const ci = options.find(o => String(o).trim().toLowerCase() === lowerCa);
+    if (ci) return ci;
+
+    // Match por letra de alternativa: "A", "A)", "A.", "A -", "Alternativa A"
+    const m = ca.match(/^(?:alternativa\s+|opção\s+|opcao\s+)?([A-Ea-e])\s*[).:\-–]?/);
+    if (m && ca.length <= 15) {
+        const idx = m[1].toUpperCase().charCodeAt(0) - 65;
+        if (options[idx]) return options[idx];
+    }
+
+    // Match por prefixo da opção (ex: correctAnswer contém o texto parcial)
+    const partial = options.find(o => lowerCa.length > 3 && (String(o).toLowerCase().startsWith(lowerCa) || lowerCa.startsWith(String(o).trim().toLowerCase())));
+    if (partial) return partial;
+
+    return ca;
+};
+
+/**
+ * Normaliza um array de questões garantindo que correctAnswer seja idêntico a uma das opções.
+ */
+export const normalizeQuizQuestions = (questions) => {
+    if (!Array.isArray(questions)) return [];
+    return questions.map(q => ({ ...q, correctAnswer: resolveCorrectAnswer(q) }));
+};
 const MAX_DAILY_REFRESHES = 10;
 const MAX_DAILY_TRAIL_CREATIONS = 1;
 
@@ -272,7 +312,9 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
         const cacheKey = type === 'study' ? 'cachedStudy' : type === 'quiz' ? 'cachedQuiz' : 'cachedAnki';
 
         // Reusa o material existente se disponível sem chamar a IA caso não seja refresh forçado
-        const rawExisting = type === 'study' ? (trail?.cachedStudy || trail?.content || (currentTrail?.id === trail?.id ? studyContent : null)) : trail?.[cacheKey];
+        let rawExisting = type === 'study' ? (trail?.cachedStudy || trail?.content || (currentTrail?.id === trail?.id ? studyContent : null)) : trail?.[cacheKey];
+        // Normaliza gabaritos de quizzes vindos do cache (garante match exato com as opções)
+        if (type === 'quiz' && Array.isArray(rawExisting)) rawExisting = normalizeQuizQuestions(rawExisting);
         // Arrays/strings vazias NÃO contam como conteúdo existente (evita telas de loading infinito)
         const existingContent = Array.isArray(rawExisting)
             ? (rawExisting.length > 0 ? rawExisting : null)
@@ -309,8 +351,9 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
                 if (user?.uid) await updateProgressCache(user.uid, trail.id, cacheKey, parsedData.studyMaterial, false, schoolId);
                 setAppState('studying_material');
             } else if (type === 'quiz' && parsedData.questions) {
-                setQuizQuestions(parsedData.questions);
-                if (user?.uid) await updateProgressCache(user.uid, trail.id, cacheKey, parsedData.questions, false, schoolId);
+                const normalizedQuestions = normalizeQuizQuestions(parsedData.questions);
+                setQuizQuestions(normalizedQuestions);
+                if (user?.uid) await updateProgressCache(user.uid, trail.id, cacheKey, normalizedQuestions, false, schoolId);
                 resetQuizState();
                 setAppState('quiz');
             } else if (type === 'anki' && parsedData.cards) {
@@ -381,7 +424,7 @@ export function useStudySession({ user, userData, updateUserData, isRoot }) {
     const handleCheckAnswer = () => {
         if (!selectedAnswer) return;
         const currentQ = quizQuestions[currentQuestionIndex];
-        const correct = selectedAnswer === currentQ.correctAnswer;
+        const correct = selectedAnswer === resolveCorrectAnswer(currentQ);
         setIsAnswered(true);
         setIsCorrect(correct);
         setBotStatus(correct ? 'correct' : 'incorrect');

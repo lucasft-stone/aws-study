@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { resolveCorrectAnswer } from '../hooks/useStudySession';
 
 export default function TimedExamModal({ questions, trailTitle, onClose, onFinish }) {
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -33,13 +34,18 @@ export default function TimedExamModal({ questions, trailTitle, onClose, onFinis
     };
 
     const handleFinishExam = () => {
+        if (isFinished) return;
         setIsFinished(true);
+        // Notifica o App para conceder XP e registrar desempenho (inclusive no colégio)
+        if (onFinish) {
+            onFinish({ correctCount, total: questions.length, userAnswers });
+        }
     };
 
-    // Calculation of results
+    // Calculation of results (com gabarito normalizado contra variações da IA)
     let correctCount = 0;
     questions.forEach((q, idx) => {
-        if (userAnswers[idx] === q.correctAnswer) {
+        if (userAnswers[idx] !== undefined && userAnswers[idx] === resolveCorrectAnswer(q)) {
             correctCount++;
         }
     });

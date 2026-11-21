@@ -4,6 +4,7 @@ import StudyBot from './StudyBot';
 import QuizEditorModal from './QuizEditorModal';
 import TimedExamModal from './TimedExamModal';
 import { checkIsAdmin } from '../services/firebaseService';
+import { resolveCorrectAnswer } from '../hooks/useStudySession';
 
 export default function Quiz({
     quizQuestions,
@@ -20,7 +21,8 @@ export default function Quiz({
     handleNextQuestion,
     handleReturnHome,
     XP_PER_CORRECT_ANSWER,
-    onSaveQuestions
+    onSaveQuestions,
+    onTimedExamFinish
 }) {
     const [isEditingQuiz, setIsEditingQuiz] = useState(false);
     const [showTimedExam, setShowTimedExam] = useState(false);
@@ -31,6 +33,7 @@ export default function Quiz({
     }
 
     const currentQuestion = quizQuestions[currentQuestionIndex];
+    const correctOptionText = resolveCorrectAnswer(currentQuestion);
     const progressPercentage = ((currentQuestionIndex + 1) / quizQuestions.length) * 100;
 
     return (
@@ -82,7 +85,7 @@ export default function Quiz({
                         const isSelected = selectedAnswer === option;
                         let buttonClass = "border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-700/50 text-slate-800 dark:text-slate-100";
                         if (isAnswered) {
-                            if (option === currentQuestion.correctAnswer) {
+                            if (option === correctOptionText) {
                                 buttonClass = "bg-green-100 border-green-300 text-green-800 dark:bg-green-900/50 dark:border-green-600 dark:text-white";
                             } else if (isSelected) {
                                 buttonClass = "bg-red-100 border-red-300 text-red-800 dark:bg-red-900/50 dark:border-red-600 dark:text-white";
@@ -161,6 +164,7 @@ export default function Quiz({
                     questions={quizQuestions}
                     trailTitle={currentTrail?.title}
                     onClose={() => setShowTimedExam(false)}
+                    onFinish={onTimedExamFinish}
                 />
             )}
         </div>

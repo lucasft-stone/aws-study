@@ -24,10 +24,12 @@ import {
     checkIsAdmin,
     updateProgressCache,
     updateGlobalTrail,
-    fetchTeacherSchools
+    fetchTeacherSchools,
+    recordSchoolScore,
+    recordSchoolQuizAnswer
 } from './services/firebaseService';
 import { useAuthAndData } from './hooks/useAuthAndData';
-import { useStudySession } from './hooks/useStudySession';
+import { useStudySession, resolveCorrectAnswer } from './hooks/useStudySession';
 import { useThemeManager } from './hooks/useThemeManager';
 
 // Trilha Oficial de Módulos AWS
@@ -96,6 +98,7 @@ export default function App() {
         isCorrect,
         botStatus,
         quizFailed,
+        lastQuizXp,
         handleCheckAnswer,
         handleNextQuestion,
         resetQuizState,
@@ -261,6 +264,27 @@ export default function App() {
 
     const currentError = sessionError || authError;
 
+    // Concede XP e registra desempenho ao finalizar um Simulado Cronometrado
+    const handleTimedExamFinish = ({ correctCount, total, userAnswers }) => {
+        const xpEarned = (correctCount || 0) * 15;
+        if (xpEarned > 0) {
+            updateUserData({ xp: (userData?.xp || 0) + xpEarned });
+        }
+        // [MULTI-TENANT] Registra no colégio: placar + acertos/erros por questão
+        if (currentTrail?.isSchoolTrail && currentTrail?.schoolId && user?.uid) {
+            const profile = { uid: user.uid, displayName: user.displayName, email: user.email };
+            if (xpEarned > 0) {
+                recordSchoolScore(profile, currentTrail.schoolId, xpEarned).catch(console.error);
+            }
+            (quizQuestions || []).forEach((q, idx) => {
+                if (userAnswers && userAnswers[idx] !== undefined) {
+                    const wasCorrect = userAnswers[idx] === resolveCorrectAnswer(q);
+                    recordSchoolQuizAnswer(profile, currentTrail.schoolId, currentTrail.id, currentTrail.title, wasCorrect).catch(console.error);
+                }
+            });
+        }
+    };
+
     const handleUpdateStudyContent = async (newText) => {
         setStudyContent(newText);
         if (currentTrail) {
@@ -408,12 +432,13 @@ export default function App() {
                         handleNextQuestion={handleNextQuestion}
                         handleReturnHome={handleReturnHome}
                         XP_PER_CORRECT_ANSWER={XP_PER_CORRECT_ANSWER}
+                        onTimedExamFinish={handleTimedExamFinish}
                         onSaveQuestions={async (newQuestions) => {
                             if (!currentTrail) return;
                             if (currentTrail.isGlobal) {
                                 await updateGlobalTrail(currentTrail.id, { cachedQuiz: newQuestions });
                             } else {
-                                await updateProgressCache(user?.uid, currentTrail.id, { cachedQuiz: newQuestions });
+                                await updateProgressCache(user?.uid, currentTrail.id, 'cachedQuiz', newQuestions, false, currentTrail.schoolId || null);
                             }
                             setQuizQuestions(newQuestions);
                             if (reloadTrails) reloadTrails();
@@ -426,6 +451,7 @@ export default function App() {
                     <Completed
                         quizFailed={quizFailed}
                         currentTrail={currentTrail}
+                        lastQuizXp={lastQuizXp}
                         handleReturnHome={handleReturnHome}
                     />
                 );
