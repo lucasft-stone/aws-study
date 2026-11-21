@@ -2,6 +2,12 @@
 
 > **PWA mobile-first de aprendizagem adaptativa** que combina Inteligência Artificial Generativa, gamificação e arquitetura multi-tenant para revolucionar a forma de estudar — seja para certificações técnicas (AWS), conteúdos escolares ou qualquer assunto.
 
+## 🌐 Acesse o Aplicativo
+
+### 👉 **[https://aws-study.vercel.app/](https://aws-study.vercel.app/)**
+
+> 📱 **Dica:** abra no celular e toque em "Adicionar à Tela Inicial" para instalar como aplicativo (PWA) — funciona inclusive offline para o conteúdo já carregado.
+
 ![React](https://img.shields.io/badge/React_19-61DAFB?logo=react&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite_7-646CFF?logo=vite&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/Tailwind_CSS_4-38BDF8?logo=tailwindcss&logoColor=white)
@@ -15,7 +21,8 @@
 
 1. [O Problema](#-o-problema)
 2. [A Solução](#-a-solução)
-3. [Benefícios da Ferramenta](#-benefícios-da-ferramenta)
+3. [📸 Demonstração (Screenshots & GIF)](#-demonstração)
+4. [Benefícios da Ferramenta](#-benefícios-da-ferramenta)
 4. [Funcionalidades por Perfil](#-funcionalidades-por-perfil)
    - [Aluno](#-perfil-aluno)
    - [Professor / Escola](#-perfil-professor--escola)
@@ -53,6 +60,69 @@ Tema desejado → IA gera Teoria + Simulado + Flashcards → Aluno estuda, erra,
 ```
 
 Com **um clique**, um professor (ou o próprio aluno) gera um pacote pedagógico completo sobre qualquer assunto — de "Amazon S3" a "Equações do 2º Grau" — com teoria em Markdown rico (fórmulas LaTeX, diagramas Mermaid, blocos de código), simulados com explicações detalhadas e flashcards no algoritmo de repetição espaçada SM-2 (o mesmo do Anki).
+
+---
+
+---
+
+## 📸 Demonstração
+
+### 🎬 Fluxo completo do aluno (GIF animado)
+
+<p align="center">
+  <img src="docs/screenshots/25-fluxo-aluno.gif" alt="Fluxo completo do aluno: Home → Colégio → Matéria → Teoria → Quiz" width="320" />
+</p>
+
+### 🎓 Visão do Aluno (Mobile)
+
+<p align="center">
+  <img src="docs/screenshots/01-home-aluno.png" alt="Home do aluno" width="250" />
+  <img src="docs/screenshots/02-colegio-topico-placar.png" alt="Placar do colégio" width="250" />
+  <img src="docs/screenshots/03-materia-opcoes.png" alt="Opções da matéria" width="250" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/04-teoria-renderizada.png" alt="Teoria renderizada com Markdown, KaTeX e Mermaid" width="250" />
+  <img src="docs/screenshots/06-flashcard-frente.png" alt="Flashcard Anki (frente)" width="250" />
+  <img src="docs/screenshots/07-flashcard-verso.png" alt="Flashcard Anki (verso)" width="250" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/08-quiz-questao.png" alt="Questão do quiz" width="250" />
+  <img src="docs/screenshots/09-quiz-resposta-correta.png" alt="Resposta correta +25 XP" width="250" />
+  <img src="docs/screenshots/10-quiz-concluido-xp.png" alt="Quiz concluído com XP" width="250" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/12-conquistas.png" alt="Conquistas e badges" width="250" />
+  <img src="docs/screenshots/13-nivel-estatisticas.png" alt="Nível e estatísticas" width="250" />
+  <img src="docs/screenshots/14-home-tema-escuro.png" alt="Tema escuro" width="250" />
+</p>
+
+### ⏱️ Simulado Cronometrado (Modo Prova Real)
+
+<p align="center">
+  <img src="docs/screenshots/19-simulado-cronometrado.png" alt="Simulado com timer e mapa de questões" width="250" />
+  <img src="docs/screenshots/20-simulado-mapa.png" alt="Mapa de questões com sinalização" width="250" />
+  <img src="docs/screenshots/21-simulado-relatorio.png" alt="Relatório do simulado: Aprovado 100%" width="250" />
+</p>
+
+### 🧑‍🏫 Visão do Professor (Desktop)
+
+<p align="center">
+  <img src="docs/screenshots/15-professor-materias.png" alt="Painel do Professor — Matérias" width="800" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/16-professor-alunos.png" alt="Painel do Professor — Alunos" width="395" />
+  <img src="docs/screenshots/17-professor-desempenho.png" alt="Painel do Professor — Desempenho" width="395" />
+</p>
+
+### 👑 Visão do Administrador
+
+<p align="center">
+  <img src="docs/screenshots/22-home-admin.png" alt="Home com acesso Admin e Modo Aluno" width="250" />
+  <img src="docs/screenshots/23-admin-panel.png" alt="Painel de Administração" width="250" />
+  <img src="docs/screenshots/24-modo-aluno-ativo.png" alt="Modo Aluno ativo" width="250" />
+</p>
+
+> 🎭 **Modo Demonstração:** rode o app com `VITE_ENABLE_FIREBASE_AUTH=false` para explorar todas essas telas com um colégio fictício completo — sem precisar de login nem Firebase.
 
 ---
 
