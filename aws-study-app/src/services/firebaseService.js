@@ -21,6 +21,64 @@ import {
 } from 'firebase/firestore';
 
 export const ENABLE_FIREBASE_AUTH = import.meta.env.VITE_ENABLE_FIREBASE_AUTH === 'true';
+
+// ============================================================================
+// 🎭 MODO DEMONSTRAÇÃO (VITE_ENABLE_FIREBASE_AUTH=false)
+// Dataset fictício de colégio para demos, testes e capturas de tela.
+// NUNCA é usado em produção (quando o Firebase Auth está ativo).
+// ============================================================================
+export const DEMO_SCHOOL = {
+    id: 'demo-school-1',
+    name: 'Colégio Demonstração',
+    code: 'DEMO01',
+    teacherEmails: ['professor@demo.com'],
+    teacherUids: ['test-user-123'],
+    studentUids: ['aluno-1', 'aluno-2', 'aluno-3']
+};
+
+export const DEMO_SUBJECT = {
+    id: 'demo-subject-1',
+    schoolId: 'demo-school-1',
+    isSchoolTrail: true,
+    schoolName: 'Colégio Demonstração',
+    title: 'Fundamentos de Computação em Nuvem',
+    topic: 'Tecnologia',
+    subjectTopic: 'Tecnologia',
+    icon: '☁️',
+    published: true,
+    content: 'Conceitos de IaaS, PaaS, SaaS e modelos de implantação de nuvem.',
+    cachedStudy: '## ☁️ Fundamentos de Computação em Nuvem\n\nA **computação em nuvem** é a entrega de recursos de TI sob demanda pela internet, com pagamento conforme o uso.\n\n### Modelos de Serviço\n\n| Modelo | O que você gerencia | Exemplo |\n|---|---|---|\n| **IaaS** | SO, middleware, apps | EC2, VMs |\n| **PaaS** | Apenas o código | Elastic Beanstalk |\n| **SaaS** | Apenas o uso | Gmail, Salesforce |\n\n> 💡 **Dica de prova:** IaaS = você gerencia MAIS; SaaS = você gerencia MENOS.\n\n### Benefícios\n\n1. **Elasticidade** — escala conforme a demanda\n2. **Custo variável** — troque CapEx por OpEx\n3. **Alcance global** — deploy em minutos\n\n```mermaid\ngraph TD\n    A[Usuário] --> B[Internet]\n    B --> C[Provedor de Nuvem]\n    C --> D[IaaS]\n    C --> E[PaaS]\n    C --> F[SaaS]\n```\n\n### Disponibilidade (SLA)\n\nUm SLA de 99,9% permite apenas $\n0.001 \\times 30 \\times 24 = 0{,}72$ horas de indisponibilidade por mês.',
+    cachedQuiz: [
+        { id: 'dq1', question: 'Uma empresa quer migrar sua aplicação SEM gerenciar servidores, sistema operacional ou runtime. Qual modelo de nuvem é MAIS adequado?', options: ['IaaS (Infrastructure as a Service)', 'PaaS (Platform as a Service)', 'SaaS (Software as a Service)', 'On-premises com virtualização'], correctAnswer: 'PaaS (Platform as a Service)', explanation: 'No PaaS o desenvolvedor foca apenas no código; o provedor gerencia SO, runtime e servidores. IaaS exigiria gerenciar o SO, e SaaS é software pronto (não plataforma para deploy).' },
+        { id: 'dq2', question: 'Qual benefício da nuvem permite aumentar ou reduzir recursos automaticamente conforme a demanda?', options: ['Elasticidade', 'Agilidade', 'Segurança', 'Economia de escala'], correctAnswer: 'Elasticidade', explanation: 'Elasticidade é a capacidade de escalar recursos dinamicamente. Agilidade refere-se à velocidade de provisionamento; economia de escala refere-se ao custo.' },
+        { id: 'dq3', question: 'Gmail e Google Drive são exemplos clássicos de qual modelo de serviço?', options: ['IaaS', 'PaaS', 'SaaS', 'DaaS'], correctAnswer: 'SaaS', explanation: 'SaaS entrega software completo pela internet — o usuário apenas consome, sem gerenciar nada da infraestrutura.' },
+        { id: 'dq4', question: 'Um SLA de 99,9% de disponibilidade permite aproximadamente quanto tempo de indisponibilidade por mês?', options: ['~43 minutos', '~8,7 horas', '~0,72 horas (43 min)', '~1 dia'], correctAnswer: '~0,72 horas (43 min)', explanation: '0,1% de 30 dias × 24h = 0,72h ≈ 43 minutos/mês. SLA de 99,99% permite apenas ~4,3 minutos.' },
+        { id: 'dq5', question: 'Trocar grandes investimentos iniciais em hardware (CapEx) por gastos variáveis conforme o uso (OpEx) é conhecido como:', options: ['Despesa de capital', 'Custo variável / OpEx', 'Depreciação', 'Provisionamento fixo'], correctAnswer: 'Custo variável / OpEx', explanation: 'A nuvem transforma CapEx (compra de datacenters) em OpEx (pague pelo que usar), reduzindo riscos e desperdício.' }
+    ],
+    cachedAnki: [
+        { id: 'da1', front: 'O que é IaaS?', back: 'Infrastructure as a Service: o provedor entrega infraestrutura (servidores, rede, storage); você gerencia SO, middleware e aplicações. Ex: Amazon EC2.', topic: 'Tecnologia', difficulty: 'medium', repetition: 0, interval: 1, easeFactor: 2.5 },
+        { id: 'da2', front: 'Qual a diferença entre PaaS e SaaS?', back: 'PaaS = plataforma para você fazer DEPLOY do seu código (ex: Elastic Beanstalk). SaaS = software PRONTO para uso (ex: Gmail).', topic: 'Tecnologia', difficulty: 'medium', repetition: 0, interval: 1, easeFactor: 2.5 },
+        { id: 'da3', front: 'O que é elasticidade na nuvem?', back: 'Capacidade de escalar recursos automaticamente para cima ou para baixo conforme a demanda, pagando apenas pelo uso.', topic: 'Tecnologia', difficulty: 'easy', repetition: 0, interval: 1, easeFactor: 2.5 }
+    ]
+};
+
+const DEMO_STUDENTS = [
+    { uid: 'aluno-1', displayName: 'Ana Beatriz Silva', email: 'ana.silva@demo.com', xp: 340, hearts: 5 },
+    { uid: 'aluno-2', displayName: 'Carlos Eduardo Santos', email: 'carlos.santos@demo.com', xp: 210, hearts: 4 },
+    { uid: 'aluno-3', displayName: 'Mariana Oliveira', email: 'mariana.oliveira@demo.com', xp: 125, hearts: 5 }
+];
+
+const DEMO_PERFORMANCE = [
+    { id: 'aluno-1_demo-subject-1', studentUid: 'aluno-1', studentName: 'Ana Beatriz Silva', studentEmail: 'ana.silva@demo.com', subjectId: 'demo-subject-1', subjectTitle: 'Fundamentos de Computação em Nuvem', totalAnswers: 10, correctAnswers: 9, wrongAnswers: 1 },
+    { id: 'aluno-2_demo-subject-1', studentUid: 'aluno-2', studentName: 'Carlos Eduardo Santos', studentEmail: 'carlos.santos@demo.com', subjectId: 'demo-subject-1', subjectTitle: 'Fundamentos de Computação em Nuvem', totalAnswers: 10, correctAnswers: 5, wrongAnswers: 5 },
+    { id: 'aluno-3_demo-subject-1', studentUid: 'aluno-3', studentName: 'Mariana Oliveira', studentEmail: 'mariana.oliveira@demo.com', subjectId: 'demo-subject-1', subjectTitle: 'Fundamentos de Computação em Nuvem', totalAnswers: 8, correctAnswers: 2, wrongAnswers: 6 }
+];
+
+const DEMO_SCORES = [
+    { id: 'aluno-1', studentUid: 'aluno-1', studentName: 'Ana Beatriz Silva', studentEmail: 'ana.silva@demo.com', schoolXp: 225 },
+    { id: 'aluno-2', studentUid: 'aluno-2', studentName: 'Carlos Eduardo Santos', studentEmail: 'carlos.santos@demo.com', schoolXp: 125 },
+    { id: 'aluno-3', studentUid: 'aluno-3', studentName: 'Mariana Oliveira', studentEmail: 'mariana.oliveira@demo.com', schoolXp: 50 }
+];
 export const HIDE_EXISTING_TRAILS = import.meta.env.VITE_HIDE_EXISTING_TRAILS === 'true';
 export const ROOT_USER_UID = import.meta.env.VITE_ROOT_USER_UID;
 
@@ -558,6 +616,7 @@ export const fetchAuditLogs = async () => {
  * [MULTI-TENANT] Busca um colégio específico pelo ID.
  */
 export const fetchSchoolById = async (schoolId) => {
+    if (!ENABLE_FIREBASE_AUTH) return schoolId === 'demo-school-1' ? { ...DEMO_SCHOOL } : null;
     if (!ENABLE_FIREBASE_AUTH || !db || !schoolId) return null;
     try {
         const docSnap = await getDoc(doc(db, 'schools', schoolId));
@@ -617,6 +676,7 @@ export const deleteSchool = async (schoolId) => {
  * [MULTI-TENANT / TRILHAS DE MATÉRIA] Busca trilhas vinculadas a um colégio/professor.
  */
 export const fetchSchoolTrails = async (schoolId) => {
+    if (!ENABLE_FIREBASE_AUTH) return schoolId === 'demo-school-1' ? [{ ...DEMO_SUBJECT }] : [];
     if (!ENABLE_FIREBASE_AUTH || !db || !schoolId) return [];
     try {
         const querySnap = await getDocs(collection(db, 'schools', schoolId, 'subjects'));
@@ -632,6 +692,7 @@ export const fetchSchoolTrails = async (schoolId) => {
  * Garante que o aluno sempre veja o conteúdo mais recente publicado pelo professor.
  */
 export const fetchSchoolTrailById = async (schoolId, subjectId) => {
+    if (!ENABLE_FIREBASE_AUTH) return subjectId === 'demo-subject-1' ? { ...DEMO_SUBJECT } : null;
     if (!ENABLE_FIREBASE_AUTH || !db || !schoolId || !subjectId) return null;
     try {
         const docSnap = await getDoc(doc(db, 'schools', schoolId, 'subjects', subjectId));
@@ -680,6 +741,7 @@ export const deleteSchoolTrail = async (schoolId, subjectId) => {
  * Critérios: email em teacherEmails, uid em teacherUids, ou flag isTeacher/isAdmin no perfil.
  */
 export const fetchTeacherSchools = async (user, userData = null) => {
+    if (!ENABLE_FIREBASE_AUTH) return [{ ...DEMO_SCHOOL }];
     if (!ENABLE_FIREBASE_AUTH || !db || !user) return [];
     try {
         const querySnap = await getDocs(collection(db, 'schools'));
@@ -712,6 +774,7 @@ export const checkIsTeacher = async (user, userData = null) => {
  * [MULTI-TENANT / PROFESSOR] Busca os dados de perfil dos alunos matriculados em um colégio.
  */
 export const fetchSchoolStudents = async (school) => {
+    if (!ENABLE_FIREBASE_AUTH) return DEMO_STUDENTS.map(st => ({ ...st }));
     if (!ENABLE_FIREBASE_AUTH || !db || !school) return [];
     const uids = Array.isArray(school.studentUids) ? school.studentUids : [];
     const students = [];
@@ -778,6 +841,7 @@ export const recordSchoolScore = async (studentProfile, schoolId, xpDelta) => {
  * [MULTI-TENANT / PLACAR] Busca a pontuação de UM aluno em um colégio.
  */
 export const fetchStudentSchoolScore = async (uid, schoolId) => {
+    if (!ENABLE_FIREBASE_AUTH) return 75;
     if (!ENABLE_FIREBASE_AUTH || !db || !uid || !schoolId) return 0;
     try {
         const snap = await getDoc(doc(db, 'schools', schoolId, 'scores', uid));
@@ -792,6 +856,7 @@ export const fetchStudentSchoolScore = async (uid, schoolId) => {
  * [MULTI-TENANT / PLACAR] Busca o placar completo de um colégio (para o professor).
  */
 export const fetchSchoolScores = async (schoolId) => {
+    if (!ENABLE_FIREBASE_AUTH) return DEMO_SCORES.map(sc => ({ ...sc }));
     if (!ENABLE_FIREBASE_AUTH || !db || !schoolId) return [];
     try {
         const querySnap = await getDocs(collection(db, 'schools', schoolId, 'scores'));
@@ -806,6 +871,7 @@ export const fetchSchoolScores = async (schoolId) => {
  * [MULTI-TENANT / DESEMPENHO] Busca todos os registros de desempenho de um colégio.
  */
 export const fetchSchoolPerformance = async (schoolId) => {
+    if (!ENABLE_FIREBASE_AUTH) return DEMO_PERFORMANCE.map(pf => ({ ...pf }));
     if (!ENABLE_FIREBASE_AUTH || !db || !schoolId) return [];
     try {
         const querySnap = await getDocs(collection(db, 'schools', schoolId, 'performance'));

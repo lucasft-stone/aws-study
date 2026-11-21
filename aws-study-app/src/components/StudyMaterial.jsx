@@ -994,15 +994,17 @@ export default function StudyMaterial({
                 </button>
                 
                 <div className="flex flex-row items-center gap-2 w-full sm:w-auto">
-                    <button
-                        onClick={() => {
-                            setEditableText(cleanTextForEditing(studyContent || ''));
-                            setIsEditingFullMaterial(true);
-                        }}
-                        className="sm:hidden flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold py-2.5 px-3 rounded-xl transition-all text-xs flex items-center justify-center gap-1 shadow-sm"
-                    >
-                        <span>✏️ Editar</span>
-                    </button>
+                    {isRoot && (
+                        <button
+                            onClick={() => {
+                                setEditableText(cleanTextForEditing(studyContent || ''));
+                                setIsEditingFullMaterial(true);
+                            }}
+                            className="sm:hidden flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold py-2.5 px-3 rounded-xl transition-all text-xs flex items-center justify-center gap-1 shadow-sm"
+                        >
+                            <span>✏️ Editar</span>
+                        </button>
+                    )}
 
                     <button
                         onClick={handleFinishStudyAndStartQuiz}

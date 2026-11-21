@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
     ENABLE_FIREBASE_AUTH, 
     subscribeToAuthChanges, 
@@ -14,7 +14,8 @@ import {
     createCustomTrail, 
     updateCustomTrail,
     deleteCustomTrail, 
-    clearStudyCache 
+    clearStudyCache,
+    DEMO_SUBJECT
 } from '../services/firebaseService';
 
 const MAX_HEARTS = 5;
@@ -24,6 +25,7 @@ export function useAuthAndData() {
     const [userData, setUserData] = useState(null);
     const [customTrails, setCustomTrails] = useState([]);
     const [authLoading, setAuthLoading] = useState(true);
+    const demoInitRef = useRef(false);
     const [authError, setAuthError] = useState('');
 
     const reloadTrails = useCallback(async (currentUser, knownUserData = null) => {
@@ -87,7 +89,10 @@ export function useAuthAndData() {
             });
             return () => unsubscribe();
         } else {
-            // Modo local/teste sem Firebase
+            // Modo local/teste sem Firebase — executa UMA única vez (evita loop infinito:
+            // setUser cria novo objeto → recria reloadTrails → re-executa este efeito)
+            if (demoInitRef.current) return;
+            demoInitRef.current = true;
             const today = new Date().toISOString().split('T')[0];
             setUser({ 
                 displayName: "Usuário Teste", 
@@ -100,10 +105,12 @@ export function useAuthAndData() {
                 lastRefreshDate: today, 
                 dailyRefreshes: 0,
                 lastTrailCreationDate: today, 
-                dailyTrailCreations: 0
+                dailyTrailCreations: 0,
+                enrolledSchoolIds: ['demo-school-1']
             });
             setCustomTrails([
-                { id: '1', title: 'Minha Primeira Trilha', content: 'Este é um teste de AWS IAM e Buckets S3.' }
+                { id: '1', title: 'Minha Primeira Trilha', content: 'Este é um teste de AWS IAM e Buckets S3.' },
+                { ...DEMO_SUBJECT, topic: '🏫 Colégio Demonstração' }
             ]);
             setAuthLoading(false);
         }
